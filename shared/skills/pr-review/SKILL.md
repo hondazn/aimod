@@ -8,7 +8,7 @@ description: |
   - GitHub PR URLが貼られた場合（例: https://github.com/.../pull/123）
   - 「このPRどう思う？」「変更内容を確認して」のような間接的な依頼
   コード修正は行わない。修正が必要な場合は address-review スキルに委譲する。
-argument-hint: "[PR番号 例: #123 / 123 / URL] [--auto]"
+argument-hint: "[PR番号 例: #123 / 123 / URL]"
 allowed-tools:
   - Agent
   - Read(*)
@@ -17,9 +17,6 @@ allowed-tools:
   - Bash(gh:*)
   - Bash(git:*)
   - Bash(ls:*)
-  - Bash(mktemp:*)
-  - Bash(rm:*)
-  - Bash(cat:*)
   - Bash(jq:*)
   - AskUserQuestion
 ---
@@ -33,8 +30,6 @@ $ARGUMENTS
 ```
 
 作業を開始する前に、ユーザーからの入力を理解し、PR番号を特定すること。
-
-`$ARGUMENTS` に `--auto` が含まれている場合、**自動モード**として扱う。自動モードでは Phase 6（ユーザー確認ゲート）をスキップし、Phase 5 完了後に直接 Phase 7（GitHub投稿）に進む。サブエージェントから呼び出す場合は `--auto` を付与すること。
 
 ## 目的
 
@@ -354,17 +349,9 @@ mustがない場合:
 
 ---
 
-## Phase 6: ユーザー確認ゲート
+## Phase 6: GitHub投稿
 
-**自動モード（`--auto`）の場合はこの Phase をスキップし、Phase 7 に直接進む。**
-
-Phase 7（GitHub投稿）に進む前に、ユーザーの承認を得る。
-
-### 6-1. コメント内容の提示
-
-作成した全コメント（サマリー + インラインコメント）をテーブル形式で提示する。
-
-### 6-2. レビューイベントの提示
+### 6-1. レビューイベントの決定
 
 | 条件 | レビューイベント |
 |------|----------------|
@@ -372,22 +359,7 @@ Phase 7（GitHub投稿）に進む前に、ユーザーの承認を得る。
 | suggestion/nit のみ | `COMMENT` |
 | good のみ / 問題なし | `APPROVE` |
 
-### 6-3. ユーザー確認
-
-`AskUserQuestion` で以下を確認する:
-
-- コメント内容・重要度に問題ないか
-- 編集・削除・追加したいコメントがあるか
-- レビューイベントを変更するか
-- 投稿してよいか
-
-ユーザーが承認するまで Phase 7 に進まないこと。
-
----
-
-## Phase 7: GitHub投稿
-
-### 7-1. コメントJSONの構築
+### 6-2. コメントJSONの構築と投稿
 
 まずHEAD commit SHAを取得する:
 
@@ -395,15 +367,12 @@ Phase 7（GitHub投稿）に進む前に、ユーザーの承認を得る。
 gh pr view <番号> --json headRefOid --jq '.headRefOid'
 ```
 
-一時ファイルにレビューJSONを作成する:
+heredocで直接APIに投稿する:
 
 ```bash
-TMPFILE=$(mktemp /tmp/pr-review-XXXXXX.json)
-```
-
-JSONの構造:
-
-```json
+gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
+  --method POST \
+  --input - <<'EOF'
 {
   "event": "COMMENT",
   "body": "レビューサマリー本文",
@@ -417,36 +386,21 @@ JSONの構造:
     }
   ]
 }
+EOF
 ```
 
 注意点:
 - `line` はPR diff上で表示される行番号（変更後のファイルの行番号）を使う
 - `side` は原則 `"RIGHT"`（変更後側）を指定する。削除行にコメントする場合のみ `"LEFT"`
 - 複数行にまたがるコメントが必要な場合は `start_line` と `start_side` も指定する
-- JSONの文字列中にダブルクォートやバックスラッシュがある場合は適切にエスケープすること
-
-### 7-2. API呼び出し
-
-```bash
-gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
-  --method POST \
-  --input "$TMPFILE"
-```
+- heredocのデリミタを `<<'EOF'` （クォート付き）にすることでシェル変数展開を防ぐ。動的な値（commit SHA等）はリテラルとして埋め込むこと
 
 **エラー時の対応:**
 - 422 Unprocessable Entity（行番号がdiff範囲外等）— 問題のコメントを除外して再試行する。除外したコメントはユーザーに報告する
 - 403 Forbidden — 権限不足を報告して停止する
 - その他のエラー — エラー内容をユーザーに報告して停止する
 
-### 7-3. クリーンアップ
-
-```bash
-rm -f "$TMPFILE"
-```
-
-成功・失敗に関わらず一時ファイルを削除する。
-
-### 7-4. 完了報告
+### 6-3. 完了報告
 
 ```text
 レビューを投稿しました
