@@ -18,7 +18,8 @@ allowed-tools:
   - Bash(git:*)
   - Bash(ls:*)
   - Bash(jq:*)
-  - AskUserQuestion
+  - Bash(sort:*)
+  - Bash(kill:*)
 ---
 
 # PRレビュー（汎用）
@@ -65,7 +66,17 @@ gh pr view <番号> --json number,title,state,headRefName,baseRefName,url,body,l
 |-------------|------|--------|
 | PRステータス | `state == OPEN` | MERGED/CLOSEDなら「このPRは既に{状態}です」と報告して停止 |
 
-### 1-4. 既存レビューの確認
+### 1-4. リポジトリのオーナー/リポジトリ名の取得
+
+以降の `gh api` コマンドで使うため、最初にオーナー/リポジトリ名を取得しておく:
+
+```bash
+gh repo view --json nameWithOwner --jq '.nameWithOwner'
+```
+
+取得した値（例: `spiderplus/SP-web-ui`）は以降の `{owner}/{repo}` プレースホルダーにリテラルとして埋め込む。
+
+### 1-5. 既存レビューの確認
 
 自分（CLIユーザー）が既にレビュー済みかを確認する:
 
@@ -73,9 +84,9 @@ gh pr view <番号> --json number,title,state,headRefName,baseRefName,url,body,l
 gh api repos/{owner}/{repo}/pulls/<番号>/reviews --jq '.[].user.login' | sort -u
 ```
 
-既にレビュー済みの場合、ユーザーに「既存のレビューがあります。新しいレビューを追加しますか？」と確認する。
+既にレビュー済みでも、そのまま新しいレビューを追加して続行する。
 
-### 1-5. 関連Issueの取得
+### 1-6. 関連Issueの取得
 
 PR本文から `Closes #N` / `Fixes #N` / `Resolves #N` / `Refs #N` / `#N` パターンでIssue番号を抽出し、Issue情報を取得する:
 
@@ -85,19 +96,16 @@ gh issue view <番号> --json number,title,body,labels
 
 Issueが見つからない場合は無視して続行する（エラーで止めない）。
 
-### 1-6. 変更ファイル一覧と差分の取得
+### 1-7. 変更ファイル一覧と差分の取得
 
 ```bash
 gh pr view <番号> --json files --jq '.files[] | "\(.path)\t\(.additions)\t\(.deletions)"'
 gh pr diff <番号>
 ```
 
-### 1-7. 大規模PR対応
+### 1-8. 大規模PR対応
 
-変更ファイル数が30超、または差分行数合計が2000行超の場合:
-
-1. ユーザーに「PRが大規模です（N ファイル / M 行）。重点的にレビューする領域を指定しますか？」と確認する
-2. 指定がなければ、以下の優先順位で重点レビュー対象を選ぶ:
+変更ファイル数が30超、または差分行数合計が2000行超の場合、以下の優先順位で重点レビュー対象を自動選択する:
    - ビジネスロジック（テスト・設定ファイル・自動生成ファイルより優先）
    - 変更量の大きいファイル
    - 新規追加ファイル
@@ -173,7 +181,7 @@ PRの規模に応じてレビュー方式を選択する:
 - **差分200行以下** かつ **変更ファイル5個以下** → 4-2（単一フローレビュー）へ
 - **それ以外** → 4-3（サブエージェント並列レビュー）へ
 
-この判定はPhase 1-6で取得した差分行数・ファイル数から行う。
+この判定はPhase 1-7で取得した差分行数・ファイル数から行う。
 
 ### 4-2. 単一フローレビュー（小規模PR用）
 
