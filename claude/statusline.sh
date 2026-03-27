@@ -178,10 +178,14 @@ if [ -n "$FIVE_H" ] || [ -n "$SEVEN_D" ]; then
   fi
 
   RATE_LIMITS_LINE="⏳$parts"
+else
+  # rate limitデータ未取得時（起動直後等）はプレースホルダーを表示
+  dim="\033[2m"
+  reset="\033[0m"
+  empty_gauge="░░░░░░░░░░"
+  RATE_LIMITS_LINE="⏳5h ${dim}${empty_gauge} --%${reset} │ 7d ${dim}${empty_gauge} --%${reset}"
 fi
 
 echo -en "\033[0m"
 echo -e "${CURRENT_DIR} ${GIT_BRANCH} ${GIT_STATUS} ${MODEL_DISPLAY} ${VERSION} ${TOKEN_COUNT}"
-if [ -n "$RATE_LIMITS_LINE" ]; then
-  echo -e "${RATE_LIMITS_LINE}"
-fi
+echo -e "${RATE_LIMITS_LINE}"
