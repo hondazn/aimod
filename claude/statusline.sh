@@ -5,7 +5,20 @@ input=$(cat)
 # jqを使用して値を抽出
 MODEL_DISPLAY="🤖$(echo "$input" | jq -r '.model.display_name')"
 current_path=$(echo "$input" | jq -r '.workspace.project_dir')
-CURRENT_DIR="🚀${current_path##*/}"
+# gitリポジトリならremoteからowner/repoを取得、なければbasename
+CURRENT_DIR=""
+if remote_url=$(git remote get-url origin 2>/dev/null); then
+  remote_url="${remote_url%.git}"
+  repo="${remote_url##*/}"
+  owner="${remote_url%/*}"
+  owner="${owner##*[:/]}"
+  if [ -n "$owner" ] && [ -n "$repo" ]; then
+    CURRENT_DIR="🚀${owner}/${repo}"
+  fi
+fi
+if [ -z "$CURRENT_DIR" ]; then
+  CURRENT_DIR="🚀${current_path##*/}"
+fi
 VERSION="💥$(echo "$input" | jq -r '.version')"
 #TOTAL_COST="💰$(echo "$input" | jq -r '.cost.total_cost_usd')"
 
