@@ -7,7 +7,7 @@ description: |
   - 「PRをレビューして」「PR #123をレビュー」「コードレビューして」
   - GitHub PR URLが貼られた場合（例: https://github.com/.../pull/123）
   - 「このPRどう思う？」「変更内容を確認して」のような間接的な依頼
-  コード修正は行わない。修正が必要な場合は address-review スキルに委譲する。
+  コード修正は行わない。修正が必要な場合は respond-review スキルに委譲する。
 argument-hint: "[PR番号 例: #123 / 123 / URL]"
 allowed-tools:
   - Agent
@@ -35,8 +35,7 @@ $ARGUMENTS
 ## 目的
 
 PRの変更内容を構造的に理解・解説し、一般的なコード品質観点でレビューし、GitHubにレビューコメントを投稿する。
-
-このスキルはコード修正を行わない。修正が必要な場合は `address-review` スキルに委譲する。
+このスキルはコード修正を行わない。
 
 ---
 
@@ -48,7 +47,7 @@ PRの変更内容を構造的に理解・解説し、一般的なコード品質
 
 - `#123` / `123` — 数字のみ
 - `https://github.com/{owner}/{repo}/pull/123` — URLからパース
-- 引数なし — カレントブランチのPRを自動検出: `gh pr view --json number --jq '.number'`
+- 引数なし — カレントブランチのPRを自動検出: !`gh pr view --json number --jq '.number'`
 
 抽出できない場合はユーザーにPR番号を確認する。
 
@@ -70,21 +69,36 @@ gh pr view <番号> --json number,title,state,headRefName,baseRefName,url,body,l
 
 以降の `gh api` コマンドで使うため、最初にオーナー/リポジトリ名を取得しておく:
 
-```bash
-gh repo view --json nameWithOwner --jq '.nameWithOwner'
-```
+!`gh repo view --json nameWithOwner --jq '.nameWithOwner'`
 
 取得した値（例: `spiderplus/SP-web-ui`）は以降の `{owner}/{repo}` プレースホルダーにリテラルとして埋め込む。
 
 ### 1-5. 既存レビューの確認
 
-自分（CLIユーザー）が既にレビュー済みかを確認する:
+自分（CLIユーザー）が既にこのPRをレビュー済みかを確認する:
+
+自分のログイン名を取得
+!`gh api user --jq '.login'`
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/<番号>/reviews --jq '.[].user.login' | sort -u
+# このPRの全レビューを取得
+gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
+  --jq '[.[] | {user: .user.login, state, body, submitted_at: .submitted_at}]'
 ```
 
-既にレビュー済みでも、そのまま新しいレビューを追加して続行する。
+取得した結果から、自分のログイン名と一致するレビューを抽出する。
+
+**再レビューの場合（自分のレビューが1件以上存在する場合）:**
+
+- `is_re_review = true` とし、最新の自分のレビューから以下を記録する:
+  - `previous_review_state`: `CHANGES_REQUESTED` / `COMMENTED` / `APPROVED`
+  - `previous_review_body`: レビューサマリー本文
+- これらの情報は Phase 5-3 のサマリー作成で使用する
+- レビュープロセス自体（Phase 2-4）は変更しない。常に最新のdiffに対して一からレビューする
+
+**初回レビューの場合:** `is_re_review = false` として続行する。
+
+いずれの場合も、新しいレビューを追加して続行する。
 
 ### 1-6. 関連Issueの取得
 
@@ -324,6 +338,34 @@ PRの規模に応じてレビュー方式を選択する:
 5. Markdownの見出し（##, ###）は使わない
 6. 「インラインで書きました」「詳細はインラインを見てください」等、インラインコメントの存在に言及しない。GitHubのUIで自明であり、情報量がない
 7. 全体で1-4行に収める
+8. **再レビューの場合**（`is_re_review == true`）は、冒頭の一文で再レビューであることを自然に反映する。ただし「前回のレビューでは〜」のような冗長な振り返りはしない
+
+**再レビュー時のサマリー補正:**
+
+`is_re_review == true` の場合、冒頭の一文を以下の方針で書く:
+
+| 前回の状態 (`previous_review_state`) | 今回の結果 | 冒頭のトーン |
+|--------------------------------------|-----------|-------------|
+| `CHANGES_REQUESTED` | mustなし | 前回の指摘が対応されたことを認めつつ、肯定的に |
+| `CHANGES_REQUESTED` | mustあり | 前回に続き気になる点がある旨を端的に |
+| `COMMENTED` / `APPROVED` | mustなし | 引き続き良い感じである旨を |
+| `COMMENTED` / `APPROVED` | mustあり | 新しく気になった点がある旨を |
+
+**再レビューサマリー例:**
+
+前回 CHANGES_REQUESTED → 今回 mustなし:
+> 前回の指摘が修正されていて良い感じです。
+
+前回 CHANGES_REQUESTED → 今回 mustあり:
+> 前回の指摘は対応されていますが、新しく気になったところがあります。
+
+前回 COMMENTED → 今回 mustなし:
+> 引き続き良さそうです。
+
+前回 COMMENTED → 今回 mustあり:
+> 新しく追加された部分で気になったところがあります。
+
+初回レビュー（`is_re_review == false`）は従来通りのサマリー例を使う。
 
 **文体ルール:**
 
@@ -360,6 +402,8 @@ mustがない場合:
 - 4行を超えていないか
 - 「インラインで書きました」「詳細はインラインを〜」等、インラインコメントの存在に言及していないか
 - インラインコメントと同じ具体的指摘（関数名、変数名、具体的な問題の説明）をサマリーで繰り返していないか
+- 再レビュー（`is_re_review == true`）なのに初回レビューのような文面（例: 「設計の方向性は良いと思います」のような初見の印象）になっていないか
+- 初回レビュー（`is_re_review == false`）なのに「前回」に言及していないか
 - 同僚に口頭で伝えるとしたら不自然でないか
 
 ---
@@ -424,8 +468,6 @@ EOF
 - イベント: COMMENT / REQUEST_CHANGES / APPROVE
 - コメント数: N件（must: X, suggestion: Y, nit: Z, good: W）
 - URL: <PR URL>
-
-修正が必要な場合は `address-review` スキルで対応できます。
 ```
 
 投稿に一部失敗があった場合は、成功したコメントと失敗したコメントを分けて報告する。
