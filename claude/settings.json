@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Agent(*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(afplay:*)",
+      "SlashCommand(*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)",
+      "Bash(lsof:*)",
+      "Bash(cargo tree:*)",
+      "Bash(rustc:*)",
+      "Bash(xargs:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh workflow:*)",
+      "Bash(gh api repos/:owner/:repo/branches/main/protection)",
+      "Bash(gh repo view:*)",
+      "Bash(gh pr close:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh issue list:*)",
+      "WebFetch(domain:rust-lang.github.io)",
+      "WebFetch(domain:doc.crates.io)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.claudecode.com)",
+      "WebFetch(domain:docs.rs)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue edit:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(yq:*)",
+      "Bash(jq:*)",
+      "Bash(tokei:*)",
+      "Bash(gh label:*)",
+      "Bash(tree:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh project list:*)",
+      "Bash(gh auth refresh:*)",
+      "Bash(gh project item-list:*)"
+    ],
+    "deny": [
+      "Bash(git config :*)",
+      "Bash(git add .)",
+      "Bash(brew install :*)",
+      "Bash(chmod 777 :*)",
+      "Bash(rm -rf /*)",
+      "Bash(gh repo delete:*)"
+    ],
+    "ask": [],
+    "defaultMode": "plan",
+    "additionalDirectories": [
+      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS-web",
+      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS_Flutter"
+    ]
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \\a"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "explanatory-output-style@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "codex@openai-codex": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      },
+      "autoUpdate": true
+    }
+  },
+  "language": "Japanese",
+  "effortLevel": "high",
+  "skipAutoPermissionPrompt": true
+}

@@ -9,8 +9,9 @@ depends = ["claude", "cursor"]
 default_target_type = "automatic"
 
 [claude.files]
-"claude/CLAUDE.md" = { target = "~/.claude/CLAUDE.md", type = "symbolic", recurse = false }
-"claude/statusline.sh" = { target = "~/.claude/statusline.sh", type = "symbolic", recurse = false }
+"claude/settings.json" = "~/.claude/settings.json"
+"claude/CLAUDE.md" = "~/.claude/CLAUDE.md"
+"claude/statusline.sh" = "~/.claude/statusline.sh"
 "claude/agents" = { target = "~/.claude/agents", type = "symbolic", recurse = false }
 "claude/skills" = { target = "~/.claude/skills", type = "symbolic", recurse = false }
 
