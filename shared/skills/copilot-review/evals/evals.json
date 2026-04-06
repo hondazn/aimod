@@ -1,0 +1,23 @@
+{
+  "skill_name": "copilot-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "copilotに shared/agents/correctness-reviewer.md をレビューしてもらって",
+      "expected_output": "Copilot CLI が correctness-reviewer.md を解析し、severity付きの findings テーブルが表示される",
+      "files": ["shared/agents/correctness-reviewer.md"]
+    },
+    {
+      "id": 2,
+      "prompt": "Copilotレビュー staged --model gpt-5.4-mini",
+      "expected_output": "ステージ済みの変更がなければ自動検出に進み、適切なスコープでレビューが実行される。モデルとして gpt-5.4-mini が使用される",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "セカンドオピニオンがほしい。shared/skills/git-commit/SKILL.md を見てもらって",
+      "expected_output": "Copilot CLI が git-commit スキルをレビューし、findings テーブルが日本語で表示される",
+      "files": ["shared/skills/git-commit/SKILL.md"]
+    }
+  ]
+}
