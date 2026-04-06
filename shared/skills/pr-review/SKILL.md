@@ -47,7 +47,7 @@ PRの変更内容を構造的に理解・解説し、一般的なコード品質
 
 - `#123` / `123` — 数字のみ
 - `https://github.com/{owner}/{repo}/pull/123` — URLからパース
-- 引数なし — カレントブランチのPRを自動検出: !`gh pr view --json number --jq '.number'`
+- 引数なし — カレントブランチのPRを自動検出: `gh pr view [<number> | <url> | <branch>] --json number --jq '.number'`
 
 抽出できない場合はユーザーにPR番号を確認する。
 
@@ -317,7 +317,7 @@ PRの規模に応じてレビュー方式を選択する:
 - 同僚レビュアーのような自然な表現を使う
   - 良い例: 「ここ、nullが来るとクラッシュしそうです。チェック入れたほうが安全かも」
   - 悪い例: 「null参照の可能性が検出されました。適切なバリデーションの実装が推奨されます」
-- コメントの先頭に重要度ラベルを付ける: `[must]` `[suggestion]` `[nit]` `[good]`
+- コメントの先頭に重要度バッジを付け、バッジの後に改行を入れる: `![must](https://img.shields.io/badge/review-must-red.svg)` `![suggestion](https://img.shields.io/badge/review-suggestion-blue.svg)` `![nit](https://img.shields.io/badge/review-nit-green.svg)` `![good](https://img.shields.io/badge/review-good-brightgreen.svg)`
 - 問題を指摘するだけでなく、可能であれば改善案を添える
 - サマリーとインラインコメントは別物。サマリーはPR全体の印象を伝える場で、個別の指摘内容を繰り返す場ではない
 
@@ -441,7 +441,7 @@ gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
       "path": "src/xxx.rs",
       "line": 42,
       "side": "RIGHT",
-      "body": "[must] コメント内容"
+      "body": "![must](https://img.shields.io/badge/review-must-red.svg)\nコメント内容"
     }
   ]
 }

@@ -66,7 +66,7 @@ color: yellow
       "severity": "must",
       "category": "セキュリティ",
       "title": "問題の1行要約",
-      "body": "[must] 詳細な説明と改善案。ですます調で、同僚レビュアーのような自然な表現を使う。"
+      "body": "![must](https://img.shields.io/badge/review-must-red.svg) 詳細な説明と改善案。ですます調で、同僚レビュアーのような自然な表現を使う。"
     }
   ]
 }
@@ -84,5 +84,5 @@ color: yellow
   - `nit`: 些細な改善点
   - `good`: 良い実装、学びになるパターン
 - `category`: `"セキュリティ"` | `"パフォーマンス"` | `"正しさ"` | `"テスト"` | `"可読性"` のいずれか
-- `body`: 先頭に `[severity]` ラベルを付与。ですます調で、同僚に話すような自然な表現を使う
+- `body`: 先頭に severity に対応するバッジを付与（`![must](https://img.shields.io/badge/review-must-red.svg)` / `![suggestion](https://img.shields.io/badge/review-suggestion-blue.svg)` / `![nit](https://img.shields.io/badge/review-nit-green.svg)` / `![good](https://img.shields.io/badge/review-good-brightgreen.svg)`）。ですます調で、同僚に話すような自然な表現を使う
 - findings が0件の場合は空配列 `[]` を返す
