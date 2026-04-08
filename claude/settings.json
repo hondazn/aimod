@@ -116,5 +116,6 @@
   },
   "language": "Japanese",
   "effortLevel": "high",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "cleanupPeriodDays": 9999
 }
