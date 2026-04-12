@@ -84,6 +84,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/copilot-stop-review.sh",
+            "timeout": 300
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -115,7 +127,7 @@
     }
   },
   "language": "Japanese",
-  "effortLevel": "high",
+  "effortLevel": "max",
   "skipAutoPermissionPrompt": true,
   "cleanupPeriodDays": 9999
 }
