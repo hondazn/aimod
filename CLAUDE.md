@@ -44,15 +44,16 @@ dotter undeploy  # シンボリックリンクを削除
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（フロントマター付きMarkdown）
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
 
-## 既存のエージェント（PRレビュー用3分割構成）
+## 既存のエージェント（PRレビュー用4分割構成）
 
 | エージェント | 観点 | JSON出力 |
 |---|---|---|
+| `specification-reviewer` | 仕様整合性、要件充足、スコープ妥当性、設計判断 | `findings[]` |
 | `correctness-reviewer` | ロジック誤り、境界条件、エラーハンドリング、null安全性、競合状態 | `findings[]` |
-| `quality-test-reviewer` | テスト有無・品質、命名、複雑さ、重複、デッドコード | `findings[]` |
-| `security-perf-reviewer` | インジェクション、認証認可、N+1クエリ、メモリリーク | `findings[]` |
+| `quality-test-reviewer` | テスト有無・品質、命名、複雑さ、重複、デッドコード、技術的負債 | `findings[]` |
+| `security-perf-reviewer` | インジェクション、認証認可、N+1クエリ、メモリリーク、運用可能性 | `findings[]` |
 
-3エージェントとも統一されたJSON出力フォーマット（`severity`: must/suggestion/nit/good）を使用する。
+4エージェントとも統一されたJSON出力フォーマット（`severity`: must/suggestion/nit/good）を使用する。
 
 ## 注意事項
 
