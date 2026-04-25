@@ -56,9 +56,16 @@
       "Bash(gh issue comment:*)",
       "Bash(gh project list:*)",
       "Bash(gh auth refresh:*)",
-      "Bash(gh project item-list:*)"
+      "Bash(gh project item-list:*)",
+      "Bash(gh gist create:*)",
+      "Bash(gh gist clone:*)",
+      "Bash(gh gist edit:*)",
+      "Bash(gh gist view:*)",
+      "Bash(codex:*)",
+      "Bash(agent:*)"
     ],
     "deny": [
+      "Read(*.env)",
       "Bash(git config :*)",
       "Bash(git add .)",
       "Bash(brew install :*)",
@@ -67,13 +74,44 @@
       "Bash(gh repo delete:*)"
     ],
     "ask": [],
-    "defaultMode": "plan",
+    "defaultMode": "auto",
     "additionalDirectories": [
       "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS-web",
       "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS_Flutter"
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/delegate-coding.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/enforce-worktree.sh",
+            "if": "Bash(git checkout *)"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/enforce-worktree.sh",
+            "if": "Bash(git switch *)"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/enforce-worktree.sh",
+            "if": "Bash(git branch *)"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": "",
@@ -81,6 +119,17 @@
           {
             "type": "command",
             "command": "echo \\a"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[load-env] PROJECT_DIR=$CLAUDE_PROJECT_DIR ENV_FILE=$CLAUDE_ENV_FILE\" >> /tmp/claude-hook-debug.log 2>&1; [ -f \"$CLAUDE_PROJECT_DIR/.env\" ] && grep -vE '^\\s*(#|$)' \"$CLAUDE_PROJECT_DIR/.env\" | sed 's/^/export /' >> \"$CLAUDE_ENV_FILE\" || true"
           }
         ]
       }
@@ -103,7 +152,11 @@
     "pr-review-toolkit@claude-plugins-official": true,
     "explanatory-output-style@claude-plugins-official": true,
     "hookify@claude-plugins-official": true,
-    "codex@openai-codex": true
+    "codex@openai-codex": true,
+    "discord@claude-plugins-official": true,
+    "cloudflare@claude-plugins-official": true,
+    "cloudflare@cloudflare": true,
+    "github@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "openai-codex": {
@@ -112,9 +165,26 @@
         "repo": "openai/codex-plugin-cc"
       },
       "autoUpdate": true
+    },
+    "cloudflare": {
+      "source": {
+        "source": "github",
+        "repo": "cloudflare/skills"
+      }
     }
   },
   "language": "Japanese",
-  "effortLevel": "high",
+  "sandbox": {
+    "filesystem": {
+      "denyRead": [
+        "./.env"
+      ]
+    }
+  },
+  "effortLevel": "xhigh",
+  "skipDangerousModePermissionPrompt": true,
+  "autoCompactEnabled": true,
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true
 }
