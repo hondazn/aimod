@@ -16,7 +16,6 @@ description: |
   user: "パフォーマンスに問題がないか見てほしい"
   assistant: "security-perf-reviewer エージェントでN+1クエリやメモリリークを確認します"
   </example>
-model: inherit
 color: yellow
 ---
 

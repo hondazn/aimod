@@ -16,7 +16,6 @@ description: |
   user: "エラーハンドリングが十分か見てほしい"
   assistant: "correctness-reviewer エージェントでエラーハンドリングの漏れを確認します"
   </example>
-model: inherit
 color: red
 ---
 

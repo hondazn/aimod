@@ -16,7 +16,6 @@ description: |
   user: "コード品質に問題がないか確認してほしい"
   assistant: "quality-test-reviewer エージェントで可読性と保守性を確認します"
   </example>
-model: inherit
 color: cyan
 ---
 
