@@ -27,21 +27,29 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 
 ## エージェント → アニメーション
 
-| エージェント | ベースアニメ | サブアニメ候補 | 意味付け |
-|---|---|---|---|
-| `meta-reviewer` | `shuchusen` | `bure`, `gatagata` | 集中線で前提に視線を奪う／時々グリッチで「前提崩れ」を表現 |
-| `pdm-reviewer` | `yoko_scroll` | `mochimochi`, `bane` | ユーザー体験の流れ／弾むリズムで網羅性ハイライト |
-| `techlead-reviewer` | `chuuou_zoom` | `gatagata`, `bure` | 核心ズーム／時々ガタガタしてバグの匂いを煽る |
+各エージェントは **アニメプール** を持つ。先頭はベース（エージェント識別用に固定）、2 番目以降はローテーション枠。
 
-### バリエーション発動ルール
+| エージェント | アニメプール（ローテーション順） | 意味付け |
+|---|---|---|
+| `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon` | 集中線で前提に視線を奪う／グリッチで前提崩れ／弾みでやわらかく |
+| `pdm-reviewer` | `yoko_scroll` → `mochimochi` → `bane` → `shuchusen` → `poyoon` | ユーザー体験の流れ／弾むリズムで網羅性ハイライト／たまに集中線で焦点化 |
+| `techlead-reviewer` | `chuuou_zoom` → `gatagata` → `bure` → `shuchusen` → `poyoon` | 核心ズーム／ガタガタでバグの匂いを煽る／集中線で核心へ視線誘導 |
 
-エージェントは原則 **ベースアニメを使う**。同一 PR 内で **3 件以上 findings を出す場合に限り、1 件だけサブアニメから選んでよい**（バリエーション枠は 1 件まで）。findings が 1〜2 件の小規模 PR ではベース固定（誰の指摘かを最優先で判別させるため）。
+### ローテーション規則
+
+エージェントは finding を出力するとき、自分の **finding 出力順インデックス `i` (0-indexed)** に対して `pool[i % len(pool)]` のアニメを採用する。
+
+- `i = 0`（1 件目）は必ずベース。findings が 1 件のみのときも識別性が確保される。
+- `i = 1, 2, ...` は順にローテーション枠を消費。プールを使い切ったら先頭に戻る。
+- ローテーション値は **エージェント側で finding 生成時に確定**させる。`pr-review` の dedup 統合で勝った side のアニメをそのまま採用し、tiebreak のたびに再計算しない。
+- severity（must/suggestion/nit/good）はアニメ選択に影響しない。色とラベルだけが severity を表す。
 
 ## バッジ URL 一覧
 
-各エージェントが finding[].body の先頭に貼る Markdown 画像参照は以下の通り。
+各エージェントが finding[].body の先頭に貼る Markdown 画像参照は、ベース（i=0）の例を以下に示す。
+ローテーション枠（i ≥ 1）では URL の `animation=` 部分のみ差し替える。
 
-### meta-reviewer（ベース: shuchusen）
+### meta-reviewer（ベース: shuchusen / プール: shuchusen → bure → gatagata → poyoon）
 
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)
@@ -50,9 +58,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)
 ```
 
-サブアニメ（バリエーション枠）: `bure` / `gatagata`
-
-### pdm-reviewer（ベース: yoko_scroll）
+### pdm-reviewer（ベース: yoko_scroll / プール: yoko_scroll → mochimochi → bane → shuchusen → poyoon）
 
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)
@@ -61,9 +67,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)
 ```
 
-サブアニメ（バリエーション枠）: `mochimochi` / `bane`
-
-### techlead-reviewer（ベース: chuuou_zoom）
+### techlead-reviewer（ベース: chuuou_zoom / プール: chuuou_zoom → gatagata → bure → shuchusen → poyoon）
 
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)
@@ -71,8 +75,6 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=chuuou_zoom&font=gothic-bold)
 ```
-
-サブアニメ（バリエーション枠）: `gatagata` / `bure`
 
 ## APPROVE 時 LGTM バッジ（特別枠）
 
@@ -89,7 +91,9 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 
 ## 重複統合時のルール
 
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 コメントに統合するとき、バッジは **重要度が高い側のもの（=そのエージェントのアニメ）** を採用する。重要度が同じ場合は、より具体的な指摘を出した側（通常は techlead）のバッジを採用する。
+`pr-review` Phase 4-5 で複数エージェントの findings を 1 コメントに統合するとき、バッジは **重要度が高い側のもの（=そのエージェントの確定済みアニメ）** を採用する。重要度が同じ場合は、より具体的な指摘を出した側（通常は techlead）のバッジを採用する。
+
+ローテーションは **エージェント側で finding 生成時に確定済み**なので、統合フェーズで再計算しない。「勝った side のバッジをそのまま使う」だけでよい。
 
 ## 動作確認
 
@@ -109,8 +113,12 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 | `いいね` × `pastel-green` × `shuchusen` | 200 | image/gif |
 | `いいね` × `pastel-green` × `yoko_scroll` | 200 | image/gif |
 | `いいね` × `pastel-green` × `chuuou_zoom` | 200 | image/gif |
-| `要修正` × `vivid-red` × `bure`（サブ） | 200 | image/gif |
-| `要修正` × `vivid-red` × `gatagata`（サブ） | 200 | image/gif |
-| `要修正` × `vivid-red` × `mochimochi`（サブ） | 200 | image/gif |
-| `要修正` × `vivid-red` × `bane`（サブ） | 200 | image/gif |
+| `要修正` × `vivid-red` × `bure`（ローテ枠） | 200 | image/gif |
+| `要修正` × `vivid-red` × `gatagata`（ローテ枠） | 200 | image/gif |
+| `要修正` × `vivid-red` × `mochimochi`（ローテ枠） | 200 | image/gif |
+| `要修正` × `vivid-red` × `bane`（ローテ枠） | 200 | image/gif |
+| `要修正` × `vivid-red` × `poyoon`（ローテ枠） | 200 | image/gif |
+| `オススメ` × `vivid-blue` × `poyoon`（ローテ枠） | 200 | image/gif |
+| `ちょっと` × `vivid-green` × `poyoon`（ローテ枠） | 200 | image/gif |
+| `いいね` × `pastel-green` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `LGTM` × `pastel-pink` × `kira` | 200 | image/gif |
