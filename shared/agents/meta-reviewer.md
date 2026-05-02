@@ -123,7 +123,7 @@ color: purple
 - `body`: severity に対応するバッジを先頭に付与する。**meta-reviewer のアニメプール**（正典: `shared/rules/review-badges.md`）は `shuchusen`(base) → `bure` → `gatagata` → `poyoon`。i 番目（0-indexed）の finding には `pool[i % 4]` のアニメを採用する（severity に依らずローテーション）。ベース（i=0）の URL 例:
   - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)`
   - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=shuchusen&font=gothic-bold)`
-  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=shuchusen&font=gothic-bold)`
+  - `![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=shuchusen&font=gothic-bold)`
   - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)`
 
   ローテーション枠（i ≥ 1）では URL の `animation=` を `bure` / `gatagata` / `poyoon` のいずれかに差し替える。ですます調で、根拠（引用元・既存資産・過去 Issue/PR 番号）を明示する

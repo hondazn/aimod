@@ -13,6 +13,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ```
 
 - ラベルは生の日本語のまま埋めてよい（パスは percent-encode 不要、サーバ側で解釈される）
+- ラベル内の **改行のみ `%0A` でエンコードが必要**（生の `\n` リテラルは backslash + n として描画されるため不可）
 - `font` は `gothic-bold` 固定
 - `color` は severity ごとに固定。`animation` はエージェント別ベース＋サブから選ぶ
 
@@ -22,7 +23,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 |---|---|---|---|
 | `must` | `要修正` | `vivid-red` | 正しく動作しない、セキュリティリスク、要件未充足 |
 | `suggestion` | `オススメ` | `vivid-blue` | より良い実装が存在する |
-| `nit` | `ちょっと` | `vivid-green` | 些細な改善点 |
+| `nit` | `ちょっと\n気になる`（2行表示） | `vivid-green` | 些細な改善点 |
 | `good` | `いいね` | `pastel-green` | 良い実装、学びになるパターン |
 
 ## エージェント → アニメーション
@@ -54,7 +55,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)
 ![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=shuchusen&font=gothic-bold)
-![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=shuchusen&font=gothic-bold)
+![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=shuchusen&font=gothic-bold)
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)
 ```
 
@@ -63,7 +64,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)
 ![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=yoko_scroll&font=gothic-bold)
-![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=yoko_scroll&font=gothic-bold)
+![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=yoko_scroll&font=gothic-bold)
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)
 ```
 
@@ -72,7 +73,7 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)
 ![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=chuuou_zoom&font=gothic-bold)
-![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)
+![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)
 ![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=chuuou_zoom&font=gothic-bold)
 ```
 
@@ -107,9 +108,9 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 | `オススメ` × `vivid-blue` × `shuchusen` | 200 | image/gif |
 | `オススメ` × `vivid-blue` × `yoko_scroll` | 200 | image/gif |
 | `オススメ` × `vivid-blue` × `chuuou_zoom` | 200 | image/gif |
-| `ちょっと` × `vivid-green` × `shuchusen` | 200 | image/gif |
-| `ちょっと` × `vivid-green` × `yoko_scroll` | 200 | image/gif |
-| `ちょっと` × `vivid-green` × `chuuou_zoom` | 200 | image/gif |
+| `ちょっと\n気になる` × `vivid-green` × `shuchusen` | 200 | image/gif |
+| `ちょっと\n気になる` × `vivid-green` × `yoko_scroll` | 200 | image/gif |
+| `ちょっと\n気になる` × `vivid-green` × `chuuou_zoom` | 200 | image/gif |
 | `いいね` × `pastel-green` × `shuchusen` | 200 | image/gif |
 | `いいね` × `pastel-green` × `yoko_scroll` | 200 | image/gif |
 | `いいね` × `pastel-green` × `chuuou_zoom` | 200 | image/gif |
@@ -119,6 +120,6 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 | `要修正` × `vivid-red` × `bane`（ローテ枠） | 200 | image/gif |
 | `要修正` × `vivid-red` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `オススメ` × `vivid-blue` × `poyoon`（ローテ枠） | 200 | image/gif |
-| `ちょっと` × `vivid-green` × `poyoon`（ローテ枠） | 200 | image/gif |
+| `ちょっと\n気になる` × `vivid-green` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `いいね` × `pastel-green` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `LGTM` × `pastel-pink` × `kira` | 200 | image/gif |

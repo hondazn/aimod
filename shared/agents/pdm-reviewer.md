@@ -136,7 +136,7 @@ color: cyan
 - `body`: severity に対応するバッジを先頭に付与する。**pdm-reviewer のアニメプール**（正典: `shared/rules/review-badges.md`）は `yoko_scroll`(base) → `mochimochi` → `bane` → `shuchusen` → `poyoon`。i 番目（0-indexed）の finding には `pool[i % 5]` のアニメを採用する（severity に依らずローテーション）。ベース（i=0）の URL 例:
   - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)`
   - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=yoko_scroll&font=gothic-bold)`
-  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=yoko_scroll&font=gothic-bold)`
+  - `![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=yoko_scroll&font=gothic-bold)`
   - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)`
 
   ローテーション枠（i ≥ 1）では URL の `animation=` を `mochimochi` / `bane` / `shuchusen` / `poyoon` のいずれかに差し替える。ですます調で、AC 番号やシナリオ名など根拠を引く

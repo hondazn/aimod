@@ -143,7 +143,7 @@ color: red
 - `body`: severity に対応するバッジを先頭に付与する。**techlead-reviewer のアニメプール**（正典: `shared/rules/review-badges.md`）は `chuuou_zoom`(base) → `gatagata` → `bure` → `shuchusen` → `poyoon`。i 番目（0-indexed）の finding には `pool[i % 5]` のアニメを採用する（severity に依らずローテーション）。ベース（i=0）の URL 例:
   - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)`
   - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=chuuou_zoom&font=gothic-bold)`
-  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)`
+  - `![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)`
   - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=chuuou_zoom&font=gothic-bold)`
 
   ローテーション枠（i ≥ 1）では URL の `animation=` を `gatagata` / `bure` / `shuchusen` / `poyoon` のいずれかに差し替える。ですます調で、計算量・脅威モデル・運用影響など根拠を明示する
