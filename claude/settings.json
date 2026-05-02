@@ -67,11 +67,7 @@
       "Bash(gh repo delete:*)"
     ],
     "ask": [],
-    "defaultMode": "plan",
-    "additionalDirectories": [
-      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS-web",
-      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS_Flutter"
-    ]
+    "defaultMode": "plan"
   },
   "hooks": {
     "Notification": [
