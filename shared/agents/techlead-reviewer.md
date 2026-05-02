@@ -121,7 +121,7 @@ color: red
       "severity": "must",
       "category": "パフォーマンス",
       "title": "問題の1行要約",
-      "body": "![must](https://img.shields.io/badge/review-must-red.svg) 詳細な説明と計算量・脅威モデル・運用影響などの根拠。ですます調で、テックリードとして判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（👀⚠️💡🙏🚀）を添えて温かみを出してもいい"
+      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold) 詳細な説明と計算量・脅威モデル・運用影響などの根拠。ですます調で、テックリードとして判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（👀⚠️💡🙏🚀）を添えて温かみを出してもいい"
     }
   ]
 }
@@ -140,6 +140,12 @@ color: red
   - `nit`: 些細な可読性・保守性改善（Linter で拾えないもの）
   - `good`: 技術的に優れた判断（適切な抽象、堅牢なエラーハンドリング、運用配慮、テスト容易な構造）
 - `category`: `"正しさ"` | `"パフォーマンス"` | `"可読性"` | `"セキュリティ"` | `"運用"` | `"持続性"` | `"テスト品質"` のいずれか
-- `body`: severity に対応するバッジを先頭に付与（`![must](https://img.shields.io/badge/review-must-red.svg)` / `![suggestion](https://img.shields.io/badge/review-suggestion-blue.svg)` / `![nit](https://img.shields.io/badge/review-nit-green.svg)` / `![good](https://img.shields.io/badge/review-good-brightgreen.svg)`）。ですます調で、計算量・脅威モデル・運用影響など根拠を明示する
+- `body`: severity に対応するバッジを先頭に付与する。**techlead-reviewer のベースアニメは `chuuou_zoom`**（正典: `shared/rules/review-badges.md`）:
+  - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)`
+  - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=chuuou_zoom&font=gothic-bold)`
+  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)`
+  - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=chuuou_zoom&font=gothic-bold)`
+
+  **バリエーション枠**: findings が **3 件以上**の場合に限り、**1 件だけ** `animation` をサブアニメ (`gatagata` / `bure`) に差し替えてよい（残りはベース固定）。findings が 1〜2 件のときはベース固定。ですます調で、計算量・脅威モデル・運用影響など根拠を明示する
 - findings が0件の場合は空配列 `[]` を返す
 - diff が極小（例: typo 修正のみ）で技術品質の論点が無い場合: 空配列を返し、`"note": "技術品質の論点が見当たりませんでした"` を追加する

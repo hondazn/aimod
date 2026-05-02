@@ -101,7 +101,7 @@ color: purple
       "severity": "must",
       "category": "方向性",
       "title": "問題の1行要約",
-      "body": "![must](https://img.shields.io/badge/review-must-red.svg) 詳細な説明と根拠。ですます調で、メタレビュアーとして方向性に対する判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（👀💡⚠️🤔）を添えて温かみを出してもいい"
+      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold) 詳細な説明と根拠。ですます調で、メタレビュアーとして方向性に対する判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（👀💡⚠️🤔）を添えて温かみを出してもいい"
     }
   ]
 }
@@ -120,6 +120,12 @@ color: purple
   - `nit`: 些細なメタ観点（参考情報）
   - `good`: 方向性として優れた判断（根本原因への適切な対処、長期方針との整合）
 - `category`: 原則 `"方向性"`。サブカテゴリとして `"根本原因"` `"前提"` `"再発明"` `"長期整合"` を必要に応じて使ってよい
-- `body`: severity に対応するバッジを先頭に付与（`![must](https://img.shields.io/badge/review-must-red.svg)` / `![suggestion](https://img.shields.io/badge/review-suggestion-blue.svg)` / `![nit](https://img.shields.io/badge/review-nit-green.svg)` / `![good](https://img.shields.io/badge/review-good-brightgreen.svg)`）。ですます調で、根拠（引用元・既存資産・過去 Issue/PR 番号）を明示する
+- `body`: severity に対応するバッジを先頭に付与する。**meta-reviewer のベースアニメは `shuchusen`**（正典: `shared/rules/review-badges.md`）:
+  - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)`
+  - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=shuchusen&font=gothic-bold)`
+  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=shuchusen&font=gothic-bold)`
+  - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)`
+
+  **バリエーション枠**: findings が **3 件以上**の場合に限り、**1 件だけ** `animation` をサブアニメ (`bure` / `gatagata`) に差し替えてよい（残りはベース固定）。findings が 1〜2 件のときはベース固定。ですます調で、根拠（引用元・既存資産・過去 Issue/PR 番号）を明示する
 - findings が0件の場合は空配列 `[]` を返す
 - 情報不足で判定不能な場合（PR/Issue 双方が空、計画が渡されない等）: 空配列を返し、`"note": "方向性の判定に必要な情報（Issue 本文 / 実装計画 / 関連ドキュメント）が不足しています"` を追加する

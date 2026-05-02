@@ -114,7 +114,7 @@ color: cyan
       "severity": "must",
       "category": "AC充足",
       "title": "問題の1行要約",
-      "body": "![must](https://img.shields.io/badge/review-must-red.svg) 詳細な説明と AC 番号 / シナリオ名を引いた根拠。ですます調で、PdM 視点としてユーザーへの影響を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（🙏👀💡⚠️🎉）を添えて温かみを出してもいい"
+      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold) 詳細な説明と AC 番号 / シナリオ名を引いた根拠。ですます調で、PdM 視点としてユーザーへの影響を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（🙏👀💡⚠️🎉）を添えて温かみを出してもいい"
     }
   ]
 }
@@ -133,7 +133,13 @@ color: cyan
   - `nit`: 些細な UX / テスト記述改善
   - `good`: ユーザー価値として優れた判断、エッジケースを的確にテスト化している、スコープが適切に絞られている
 - `category`: `"AC充足"` | `"エッジケース"` | `"UX"` | `"テスト網羅"` | `"仕様曖昧さ"` | `"スコープ"` のいずれか
-- `body`: severity に対応するバッジを先頭に付与（`![must](https://img.shields.io/badge/review-must-red.svg)` / `![suggestion](https://img.shields.io/badge/review-suggestion-blue.svg)` / `![nit](https://img.shields.io/badge/review-nit-green.svg)` / `![good](https://img.shields.io/badge/review-good-brightgreen.svg)`）。ですます調で、AC 番号やシナリオ名など根拠を引く
+- `body`: severity に対応するバッジを先頭に付与する。**pdm-reviewer のベースアニメは `yoko_scroll`**（正典: `shared/rules/review-badges.md`）:
+  - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)`
+  - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=yoko_scroll&font=gothic-bold)`
+  - `![ちょっと](https://mojiemoji.jozo.beer/emoji/ちょっと?color=vivid-green&animation=yoko_scroll&font=gothic-bold)`
+  - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)`
+
+  **バリエーション枠**: findings が **3 件以上**の場合に限り、**1 件だけ** `animation` をサブアニメ (`mochimochi` / `bane`) に差し替えてよい（残りはベース固定）。findings が 1〜2 件のときはベース固定。ですます調で、AC 番号やシナリオ名など根拠を引く
 - findings が0件の場合は空配列 `[]` を返す
 - AC が PR / Issue 双方に未記載の場合: 空配列ではなく `severity: "must"` の findings として「AC が定義されていません」を必ず返す
 - テストファイルが diff に存在しない場合: 空配列を返し、`"note": "テストファイルが diff に含まれないため、テスト網羅性の検証はスキップしました"` を追加する
