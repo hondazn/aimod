@@ -57,6 +57,7 @@ severity ごとの `{ラベル}` / `{color}` は上記「severity → ラベル 
 
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)
+![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)
 ```
 
 ## APPROVE 時 LGTM バッジ（特別枠）
