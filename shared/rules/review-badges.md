@@ -65,17 +65,17 @@ severity ごとの `{ラベル}` / `{color}` は上記「severity → ラベル 
 `pr-review` スキルがレビューイベント `APPROVE` を投稿するときのサマリー本文で使う。
 
 ```markdown
-![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=pastel-pink&animation=kira&font=gothic-bold)
+![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=orange&animation=kira&font=gothic-bold)
 ```
 
 - ラベル: `LGTM`
-- color: `pastel-pink`
+- color: `orange`
 - animation: `kira`（色相キラキラ周回）
 - 用途: サマリー本文の `LGTM` 表記の代替として使用。インラインコメントでは使わない
 
 ## 重複統合とバッジ
 
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドは重要度が高い側のものを採用する（重要度が同じ場合は通常 `techlead-reviewer` を採用）。
+`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドは Phase 4-5 のルール 2 に従って決定される（重要度が高い側、同点時は `techlead-reviewer` 優先）。詳細は `shared/skills/pr-review/SKILL.md` Phase 4-5 を参照。
 
 バッジ・アニメは Phase 4-7 の整形時に、勝った `reviewer` 名と「Phase 4-7 内での出現順 i」から `pool[i % len(pool)]` で決定する。reviewer 側で事前確定する必要はない。
 
@@ -105,4 +105,4 @@ severity ごとの `{ラベル}` / `{color}` は上記「severity → ラベル 
 | `オススメ` × `vivid-blue` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `ちょっと\n気になる` × `vivid-green` × `poyoon`（ローテ枠） | 200 | image/gif |
 | `いいね` × `pastel-green` × `poyoon`（ローテ枠） | 200 | image/gif |
-| `LGTM` × `pastel-pink` × `kira` | 200 | image/gif |
+| `LGTM` × `orange` × `kira` | 200 | image/gif |
