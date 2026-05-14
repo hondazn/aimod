@@ -85,7 +85,7 @@ color: purple
 
 ## 出力フォーマット
 
-以下のJSON形式で結果を返してください。必ずこのフォーマットに従い、JSON以外のテキストを出力に含めないでください。
+以下のJSON形式で結果を返してください。必ずこのフォーマットに従い、JSON以外のテキストを出力に含めないでください。コメントのバッジ装飾・アニメーション選択・本文整形は呼び出し側（`pr-review` スキル）が担当するため、ここでは行わない。
 
 ```json
 {
@@ -100,10 +100,13 @@ color: purple
       "start_side": null,
       "severity": "must",
       "category": "方向性",
-      "title": "問題の1行要約",
-      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold) 詳細な説明と根拠。ですます調で、メタレビュアーとして方向性に対する判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（👀💡⚠️🤔）を添えて温かみを出してもいい"
+      "title": "問題の1行要約（triage 表とユーザー報告で使用）",
+      "rationale": "詳細な説明と根拠。ですます調で、メタレビュアーとして方向性に対する判断を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。",
+      "suggestion": "具体的な改善案。あれば文字列、無ければ null",
+      "evidence": "参照元（引用元 URL / 既存資産パス / 過去 Issue・PR 番号 など）。無ければ null"
     }
-  ]
+  ],
+  "note": null
 }
 ```
 
@@ -120,12 +123,9 @@ color: purple
   - `nit`: 些細なメタ観点（参考情報）
   - `good`: 方向性として優れた判断（根本原因への適切な対処、長期方針との整合）
 - `category`: 原則 `"方向性"`。サブカテゴリとして `"根本原因"` `"前提"` `"再発明"` `"長期整合"` を必要に応じて使ってよい
-- `body`: severity に対応するバッジを先頭に付与する。**meta-reviewer のアニメプール**（正典: `shared/rules/review-badges.md`）は `shuchusen`(base) → `bure` → `gatagata` → `poyoon`。i 番目（0-indexed）の finding には `pool[i % 4]` のアニメを採用する（severity に依らずローテーション）。ベース（i=0）の URL 例:
-  - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)`
-  - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=shuchusen&font=gothic-bold)`
-  - `![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=shuchusen&font=gothic-bold)`
-  - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)`
-
-  ローテーション枠（i ≥ 1）では URL の `animation=` を `bure` / `gatagata` / `poyoon` のいずれかに差し替える。ですます調で、根拠（引用元・既存資産・過去 Issue/PR 番号）を明示する
+- `title`: 1 行要約（推奨 40 字以内）。GitHub コメント本文には出さないが、triage 表とユーザー報告での見出しとして使われる
+- `rationale`: 「なぜそれが問題か」を根拠付きで書く本文。Markdown 可。ですます調・断定トーン（must/suggestion）/ 柔らかいトーン（nit）。たまに「!」や絵文字（👀💡⚠️🤔）を添えて温かみを出してもよい。**バッジ URL や severity マークは付けない**（呼び出し側で付与される）
+- `suggestion`: 具体的な改善案。無ければ `null`
+- `evidence`: 引用元 URL / 既存資産パス / 過去 Issue・PR 番号 など、根拠の参照ポインタ。無ければ `null`
 - findings が0件の場合は空配列 `[]` を返す
-- 情報不足で判定不能な場合（PR/Issue 双方が空、計画が渡されない等）: 空配列を返し、`"note": "方向性の判定に必要な情報（Issue 本文 / 実装計画 / 関連ドキュメント）が不足しています"` を追加する
+- `note`: 情報不足で判定不能な場合の補足。例: `"方向性の判定に必要な情報（Issue 本文 / 実装計画 / 関連ドキュメント）が不足しています"`。不要なら `null`

@@ -408,7 +408,9 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 
 ### 4-4. 結果の受信
 
-全エージェントの結果を待つ。各エージェントは JSON `findings` 配列を返す。プロジェクト固有エージェントが JSON 以外（テーブル/テキスト）で返した場合は finding 形式に変換し、重要度を4段階に正規化する（不明ラベルは `suggestion`）。`source` に `"<agent-name> (project)"` を付与する。パース失敗時はそのエージェントの結果を除外して続行する。
+全エージェントの結果を待つ。各エージェントは JSON `findings` 配列を返す。受信した `findings[]` を平坦化する際に、各 finding へ **`reviewer` フィールド（出所エージェント名、例: `"techlead-reviewer"`）** を注入する。これは Phase 4-7 の整形でアニメプールを引くために必須。
+
+プロジェクト固有エージェントが JSON 以外（テーブル/テキスト）で返した場合は finding 形式に変換し、重要度を4段階に正規化する（不明ラベルは `suggestion`）。`reviewer` フィールドには `"<agent-name> (project)"` を付与する（旧 `source` 列に相当）。パース失敗時はそのエージェントの結果を除外して続行する。
 
 ### 4-5. 結果統合
 
@@ -416,8 +418,8 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 
 **重複検出ルール:**
 
-1. **完全重複**（同一ファイル + 行番号差5行以内 + 内容が実質同一）→ 重要度が高い方を採用
-2. **部分重複**（同一ファイル + 行番号差5行以内 + 異なる観点からの指摘）→ コメント本文を統合して1コメントにまとめる。重要度ラベルは最も高いものを適用
+1. **完全重複**（同一ファイル + 行番号差5行以内 + 内容が実質同一）→ 重要度が高い方を採用。整形は Phase 4-7 で reviewer 名から再計算するので、ここでバッジやアニメを引き継ぐ必要はない
+2. **部分重複**（同一ファイル + 行番号差5行以内 + 異なる観点からの指摘）→ rationale / suggestion / evidence を統合して 1 finding にまとめる（reviewer 名は高重要度側を採用）。重要度ラベルは最も高いものを適用
 3. **クロスソース重複**（汎用 + プロジェクト固有が同一ファイル + 行番号差5行以内 + 同種の指摘）→ プロジェクト固有の指摘を優先（プロジェクト文脈をより深く理解しているため）。コメント本文は統合する
 4. **非重複** → そのまま採用
 5. **自分の前回コメントとの重複**（再レビュー時のみ。`my_previous_comments` と同一ファイル + 行番号差5行以内 + 内容が実質同一）→ 除外する
@@ -438,7 +440,7 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 
 ### 4-6. 検出結果の整理
 
-単一フロー（4-2）またはサブエージェント統合（4-5）の結果を以下の表形式で整理する。プロジェクト固有エージェントが起動された場合はソース列を追加する。
+単一フロー（4-2）またはサブエージェント統合（4-5）の結果を以下の表形式で整理する。プロジェクト固有エージェントが起動された場合はソース列を追加する。**「問題の内容」列には各 finding の `title` フィールドをそのまま転記する**。本文（`rationale`）は表には展開せず、Phase 4-7 で整形して GitHub に投稿される。
 
 ```text
 | # | ファイル:行 | 問題の内容 | 重要度 | 観点 | ソース |
@@ -450,6 +452,55 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 ```
 
 問題が0件の場合はその旨を報告し、Phase 5でAPPROVEコメントのみ作成する。
+
+### 4-7. コメント整形
+
+dedup・ソート済みの `findings[]` を入力に、GitHub Pull Request Review API に投稿する `comments[]` を組み立てる決定的処理。reviewer は素材（`title` / `rationale` / `suggestion` / `evidence`）のみを返すので、ここでバッジ・アニメ・本文の合成を一括で行う。
+
+**前提:** Phase 4-4 で各 reviewer の `findings[]` を平坦化する際、各 finding に `reviewer` フィールド（出所エージェント名、例: `"techlead-reviewer"`）を注入してある。dedup で勝った side の `reviewer` 名がそのまま生き残る。
+
+**マッピング定義:**
+
+```text
+ANIMATION_POOL = {
+  "meta-reviewer":     ["shuchusen", "bure", "gatagata", "poyoon"],
+  "pdm-reviewer":      ["yoko_scroll", "mochimochi", "bane", "shuchusen", "poyoon"],
+  "techlead-reviewer": ["chuuou_zoom", "gatagata", "bure", "shuchusen", "poyoon"],
+}
+# ANIMATION_POOL に存在しない reviewer 名（プロジェクト固有エージェント等）は ["chuuou_zoom"] にフォールバック
+
+SEVERITY_MAP = {
+  "must":       {"label": "要修正",              "color": "vivid-red"},
+  "suggestion": {"label": "オススメ",            "color": "vivid-blue"},
+  "nit":        {"label": "ちょっと%0A気になる", "color": "vivid-green"},
+  "good":       {"label": "いいね",              "color": "pastel-green"},
+}
+```
+
+**手順:**
+
+1. `reviewer_indices = {}` を用意（reviewer 名 → カウンタ）
+2. dedup・ソート済みの `findings[]` を順に走査する
+3. `file == null` の finding は GitHub の `comments[]` には載せない（Phase 6-2 の Reviews API が `path` 必須のため）。代わりに「PR レベル所感」としてユーザーへの最終報告（Phase 6-3）に列挙する
+4. `file != null` の各 finding について:
+   - `reviewer = finding["reviewer"]`
+   - `pool = ANIMATION_POOL.get(reviewer, ["chuuou_zoom"])`
+   - `i = reviewer_indices.get(reviewer, 0)`
+   - `animation = pool[i % len(pool)]`
+   - `reviewer_indices[reviewer] = i + 1`
+   - `sev = SEVERITY_MAP[finding["severity"]]`
+   - `badge_url = "https://mojiemoji.jozo.beer/emoji/" + sev["label"] + "?color=" + sev["color"] + "&animation=" + animation + "&font=gothic-bold"`
+   - `badge_md = "![" + sev["label"] + "](" + badge_url + ")"`
+   - `body = badge_md + "\n\n" + finding["rationale"]`
+   - `finding["suggestion"]` があれば `body += "\n\n**改善案:** " + finding["suggestion"]` を末尾追加
+   - `comments[]` に `{"path": file, "line": line, "side": side or "RIGHT", "body": body}` を append（`start_line` / `start_side` が finding にあれば併せて入れる）
+5. 整形済み `comments[]` を Phase 6-2 へ渡す
+
+**判断ルール:**
+
+- `title` は本文に出さない（triage 表とユーザー報告での要約用途のみ）
+- `rationale` 内に既にある絵文字（👀⚠️💡🙏👍🎉）はそのまま尊重する。post-process しない
+- アニメインデックスは dedup・ソート後の配列を走査しながら reviewer 名ごとに再カウントする。reviewer 元出力時の i は使わない
 
 ---
 
@@ -466,25 +517,20 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 
 ### 5-2. インラインコメントの書き方
 
+インラインコメント本文の **整形（バッジ・先頭装飾・suggestion 追記）は Phase 4-7 で機械的に処理される**。reviewer エージェントは構造化フィールド（`title` / `rationale` / `suggestion` / `evidence`）を返すだけで、URL や severity マークの構築は行わない。
+
+**reviewer に残る「文化」（rationale 内で守られるべきもの）:**
+
 - ですます調で書く
 - テックリードとして根拠を明示した判断を述べる。曖昧な表現を避け、何が問題で何をすべきかを明確にする
   - 良い例: 「ここ、nullが来るとクラッシュします。チェックを入れてください」
   - 悪い例: 「null参照の可能性が検出されました。適切なバリデーションの実装が推奨されます」
 - must/suggestion では「〜かも」「〜しそう」「〜な気がします」を使わない。「〜です」「〜してください」「〜しましょう」で判断を明示する。nit のみ「〜でもいいかもしれません」のような柔らかい表現を許容する
-- コメントの先頭に重要度バッジを付け、バッジの後に改行を入れる。バッジ URL の正典は `shared/rules/review-badges.md` を参照。
-  - severity → 日本語ラベル / color: `must`=`要修正`/`vivid-red`、`suggestion`=`オススメ`/`vivid-blue`、`nit`=`ちょっと\n気になる`（2行表示・URL では `%0A`）/`vivid-green`、`good`=`いいね`/`pastel-green`
-  - エージェントごとのアニメプール（先頭がベース、以降ローテーション順）:
-    - `meta-reviewer`: `shuchusen` → `bure` → `gatagata` → `poyoon`
-    - `pdm-reviewer`: `yoko_scroll` → `mochimochi` → `bane` → `shuchusen` → `poyoon`
-    - `techlead-reviewer`: `chuuou_zoom` → `gatagata` → `bure` → `shuchusen` → `poyoon`
-  - 各エージェントは自分の i 番目（0-indexed）の finding に対し `pool[i % len(pool)]` のアニメを採用する（severity には依らない）。Phase 4-5 の dedup 統合では、勝った side のアニメをそのまま採用する（再計算しない）
-  - URL 形式: `https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation}&font=gothic-bold`
-  - 例（meta-reviewer の i=0, `must`）: `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)`
-- 問題を指摘するだけでなく、可能であれば改善案を添える
-- たまに「!」や絵文字を使って、人間らしい温かみを出す
-  - 頻度: コメント3〜4件に1回程度。毎回使うと逆に不自然なので、使わないコメントのほうが多くていい
+- 改善案は `suggestion` フィールドに分離して書く（rationale 末尾に書いてもよいが、できれば構造化する）
+- たまに「!」や絵文字を rationale 内で使って、人間らしい温かみを出す
+  - 頻度は各 reviewer の感覚で「ごくたまに」程度。連続して使うと不自然なので、使わない finding の方が多くてよい
   - 「!」は肯定的な文脈で使う（称賛、感謝、同意）。問題指摘では使わない
-  - 絵文字は文末に1つだけ添える。以下から選ぶ:
+  - 絵文字は文末に 1 つだけ添える。以下から選ぶ:
     - 👀 注目してほしい箇所
     - 👍 良い実装への賛同
     - 🎉 LGTM・称賛
@@ -492,7 +538,16 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
     - 💡 提案・アイデア
     - 🙏 感謝
   - 例: 「このエラーハンドリング、丁寧でいいですね 👍」
-- サマリーとインラインコメントは別物。サマリーはPR全体の印象を伝える場で、個別の指摘内容を繰り返す場ではない
+- サマリーとインラインコメントは別物。サマリーは PR 全体の印象を伝える場で、個別の指摘内容を繰り返す場ではない
+
+**整形フェーズ（Phase 4-7）が機械的に処理するもの:**
+
+- severity → 日本語ラベル / color の決定（`要修正`/`vivid-red`、`オススメ`/`vivid-blue`、`ちょっと\n気になる`/`vivid-green`、`いいね`/`pastel-green`）
+- reviewer 別アニメプールからの選択とローテーション
+- バッジ URL の構築と rationale 先頭への prepend
+- `suggestion` フィールドの末尾追記（`**改善案:** ...`）
+
+バッジ URL ビルド規則の正典は `shared/rules/review-badges.md` を参照。
 
 ### 5-3. レビューサマリー
 
@@ -607,6 +662,8 @@ Phase 2-3 で検出されたプロジェクト固有エージェントを起動�
 | 再レビュー（上記以外） | 通常ルール通り |
 
 ### 6-2. コメントJSONの構築と投稿
+
+`comments[]` は Phase 4-7 で整形済み（バッジ prepend、rationale 展開、suggestion 末尾追記まで完了）の状態でこのフェーズに渡る。`file == null` の finding はここで投稿しない（Phase 4-7 で除外済み、Phase 6-3 のユーザー報告に列挙する）。
 
 まずHEAD commit SHAを取得する:
 

@@ -98,7 +98,7 @@ color: cyan
 
 ## 出力フォーマット
 
-以下のJSON形式で結果を返してください。必ずこのフォーマットに従い、JSON以外のテキストを出力に含めないでください。
+以下のJSON形式で結果を返してください。必ずこのフォーマットに従い、JSON以外のテキストを出力に含めないでください。コメントのバッジ装飾・アニメーション選択・本文整形は呼び出し側（`pr-review` スキル）が担当するため、ここでは行わない。
 
 ```json
 {
@@ -113,10 +113,13 @@ color: cyan
       "start_side": null,
       "severity": "must",
       "category": "AC充足",
-      "title": "問題の1行要約",
-      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold) 詳細な説明と AC 番号 / シナリオ名を引いた根拠。ですます調で、PdM 視点としてユーザーへの影響を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。たまに「!」や絵文字（🙏👀💡⚠️🎉）を添えて温かみを出してもいい"
+      "title": "問題の1行要約（triage 表とユーザー報告で使用）",
+      "rationale": "詳細な説明と AC 番号 / シナリオ名を引いた根拠。ですます調で、PdM 視点としてユーザーへの影響を述べる。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。",
+      "suggestion": "具体的な改善案。あれば文字列、無ければ null",
+      "evidence": "AC 番号、シナリオ名、UX 影響箇所など。無ければ null"
     }
-  ]
+  ],
+  "note": null
 }
 ```
 
@@ -133,13 +136,10 @@ color: cyan
   - `nit`: 些細な UX / テスト記述改善
   - `good`: ユーザー価値として優れた判断、エッジケースを的確にテスト化している、スコープが適切に絞られている
 - `category`: `"AC充足"` | `"エッジケース"` | `"UX"` | `"テスト網羅"` | `"仕様曖昧さ"` | `"スコープ"` のいずれか
-- `body`: severity に対応するバッジを先頭に付与する。**pdm-reviewer のアニメプール**（正典: `shared/rules/review-badges.md`）は `yoko_scroll`(base) → `mochimochi` → `bane` → `shuchusen` → `poyoon`。i 番目（0-indexed）の finding には `pool[i % 5]` のアニメを採用する（severity に依らずローテーション）。ベース（i=0）の URL 例:
-  - `![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)`
-  - `![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=yoko_scroll&font=gothic-bold)`
-  - `![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=yoko_scroll&font=gothic-bold)`
-  - `![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)`
-
-  ローテーション枠（i ≥ 1）では URL の `animation=` を `mochimochi` / `bane` / `shuchusen` / `poyoon` のいずれかに差し替える。ですます調で、AC 番号やシナリオ名など根拠を引く
+- `title`: 1 行要約（推奨 40 字以内）。GitHub コメント本文には出さないが、triage 表とユーザー報告での見出しとして使われる
+- `rationale`: 「なぜそれが問題か」を AC 番号やシナリオ名を引きながら書く本文。Markdown 可。ですます調・断定トーン（must/suggestion）/ 柔らかいトーン（nit）。たまに「!」や絵文字（🙏👀💡⚠️🎉）を添えて温かみを出してもよい。**バッジ URL や severity マークは付けない**（呼び出し側で付与される）
+- `suggestion`: 具体的な改善案。無ければ `null`
+- `evidence`: AC 番号、シナリオ名、UX 影響箇所など。無ければ `null`
 - findings が0件の場合は空配列 `[]` を返す
 - AC が PR / Issue 双方に未記載の場合: 空配列ではなく `severity: "must"` の findings として「AC が定義されていません」を必ず返す
-- テストファイルが diff に存在しない場合: 空配列を返し、`"note": "テストファイルが diff に含まれないため、テスト網羅性の検証はスキップしました"` を追加する
+- `note`: テストファイルが diff に存在しない場合は `"テストファイルが diff に含まれないため、テスト網羅性の検証はスキップしました"` を入れる。不要なら `null`
