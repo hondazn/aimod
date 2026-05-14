@@ -1,8 +1,8 @@
 # レビューコメント用バッジ定義（mojiemoji 版）
 
-このドキュメントは **レビューコメント先頭に付ける重要度バッジの正典** です。
-`shared/agents/{meta,pdm,techlead}-reviewer.md` と `shared/skills/pr-review/SKILL.md` から参照されます。
-URL を変更したい場合はここを更新してから、参照元を `sed` で一括置換してください。
+このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer エージェント（`meta-reviewer` / `pdm-reviewer` / `techlead-reviewer`）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence`）のみを返すため、reviewer 側からはこのドキュメントを参照しません。
+
+URL を変更したい場合は、このドキュメントと `shared/skills/pr-review/SKILL.md` Phase 4-7 のアルゴリズム内のマッピング表の 2 箇所を更新します。
 
 画像生成 API は <https://mojiemoji.jozo.beer/> （Slack 絵文字サイズの PNG / GIF を返す）を利用します。
 
@@ -38,43 +38,25 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 
 ### ローテーション規則
 
-エージェントは finding を出力するとき、自分の **finding 出力順インデックス `i` (0-indexed)** に対して `pool[i % len(pool)]` のアニメを採用する。
+`pr-review` Phase 4-7 が、dedup・ソート後の `findings[]` を走査しながら **reviewer 名ごとに別カウンタ `i` (0-indexed)** を進め、`pool[i % len(pool)]` でアニメを決定する。
 
-- `i = 0`（1 件目）は必ずベース。findings が 1 件のみのときも識別性が確保される。
+- `i = 0`（その reviewer の 1 件目）は必ずベース。findings が 1 件のみのときも識別性が確保される。
 - `i = 1, 2, ...` は順にローテーション枠を消費。プールを使い切ったら先頭に戻る。
-- ローテーション値は **エージェント側で finding 生成時に確定**させる。`pr-review` の dedup 統合で勝った side のアニメをそのまま採用し、tiebreak のたびに再計算しない。
 - severity（must/suggestion/nit/good）はアニメ選択に影響しない。色とラベルだけが severity を表す。
+- reviewer エージェントは i を意識する必要が無い（出力時点ではバッジを付けない）。
 
 ## バッジ URL 一覧
 
-各エージェントが finding[].body の先頭に貼る Markdown 画像参照は、ベース（i=0）の例を以下に示す。
-ローテーション枠（i ≥ 1）では URL の `animation=` 部分のみ差し替える。
+`pr-review` Phase 4-7 が組み立てる Markdown 画像参照は次の形式を取る:
 
-### meta-reviewer（ベース: shuchusen / プール: shuchusen → bure → gatagata → poyoon）
-
-```markdown
-![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=shuchusen&font=gothic-bold)
-![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=shuchusen&font=gothic-bold)
-![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=shuchusen&font=gothic-bold)
-![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=shuchusen&font=gothic-bold)
+```text
+![{ラベル}](https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation}&font=gothic-bold)
 ```
 
-### pdm-reviewer（ベース: yoko_scroll / プール: yoko_scroll → mochimochi → bane → shuchusen → poyoon）
-
-```markdown
-![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=yoko_scroll&font=gothic-bold)
-![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=yoko_scroll&font=gothic-bold)
-![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=yoko_scroll&font=gothic-bold)
-![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=yoko_scroll&font=gothic-bold)
-```
-
-### techlead-reviewer（ベース: chuuou_zoom / プール: chuuou_zoom → gatagata → bure → shuchusen → poyoon）
+severity ごとの `{ラベル}` / `{color}` は上記「severity → ラベル / color」表、reviewer 別 `{animation}` は「エージェント → アニメーション」表に従う。例（`techlead-reviewer` の i=0、severity=must）:
 
 ```markdown
 ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)
-![オススメ](https://mojiemoji.jozo.beer/emoji/オススメ?color=vivid-blue&animation=chuuou_zoom&font=gothic-bold)
-![ちょっと気になる](https://mojiemoji.jozo.beer/emoji/ちょっと%0A気になる?color=vivid-green&animation=chuuou_zoom&font=gothic-bold)
-![いいね](https://mojiemoji.jozo.beer/emoji/いいね?color=pastel-green&animation=chuuou_zoom&font=gothic-bold)
 ```
 
 ## APPROVE 時 LGTM バッジ（特別枠）
@@ -90,11 +72,11 @@ https://mojiemoji.jozo.beer/emoji/{ラベル}?color={color}&animation={animation
 - animation: `kira`（色相キラキラ周回）
 - 用途: サマリー本文の `LGTM` 表記の代替として使用。インラインコメントでは使わない
 
-## 重複統合時のルール
+## 重複統合とバッジ
 
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 コメントに統合するとき、バッジは **重要度が高い側のもの（=そのエージェントの確定済みアニメ）** を採用する。重要度が同じ場合は、より具体的な指摘を出した側（通常は techlead）のバッジを採用する。
+`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドは重要度が高い側のものを採用する（重要度が同じ場合は通常 `techlead-reviewer` を採用）。
 
-ローテーションは **エージェント側で finding 生成時に確定済み**なので、統合フェーズで再計算しない。「勝った side のバッジをそのまま使う」だけでよい。
+バッジ・アニメは Phase 4-7 の整形時に、勝った `reviewer` 名と「Phase 4-7 内での出現順 i」から `pool[i % len(pool)]` で決定する。reviewer 側で事前確定する必要はない。
 
 ## 動作確認
 
