@@ -1,5 +1,6 @@
 .dotter/cache.toml
 .dotter/cache
 .claude/
-shared/skills/*-workspace/
 .worktrees/
+shared/skills/*-workspace/
+shared/skills/slack-triage/

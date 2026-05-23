@@ -122,17 +122,6 @@
           }
         ]
       }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo \"[load-env] PROJECT_DIR=$CLAUDE_PROJECT_DIR ENV_FILE=$CLAUDE_ENV_FILE\" >> /tmp/claude-hook-debug.log 2>&1; [ -f \"$CLAUDE_PROJECT_DIR/.env\" ] && grep -vE '^\\s*(#|$)' \"$CLAUDE_PROJECT_DIR/.env\" | sed 's/^/export /' >> \"$CLAUDE_ENV_FILE\" || true"
-          }
-        ]
-      }
     ]
   },
   "statusLine": {
@@ -186,5 +175,6 @@
   "autoCompactEnabled": true,
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "cleanupPeriodDays": 9999
 }

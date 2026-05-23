@@ -1,5 +1,4 @@
 ---
-model: sonnet
 allowed-tools:
   - Read
   - Glob
