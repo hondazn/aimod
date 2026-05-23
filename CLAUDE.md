@@ -10,7 +10,7 @@ AIコーディングアシスタント（Claude Code、Cursor）のカスタム�
 
 ```
 shared/          ← agents・skillsの実体（Claude/Cursor共通）
-  agents/        ← PRレビュー用エージェント（3種: correctness, quality-test, security-perf）
+  agents/        ← PRレビュー用 3 体（meta/pdm/techlead-reviewer）+ 合議用 + スペシャリスト 12 体
   skills/        ← スラッシュコマンドで呼び出すスキル群
   rules/         ← 共通ルール（`review-badges.md`: レビューコメント用バッジ定義の正典）
 claude/          ← Claude Code用設定
@@ -60,25 +60,50 @@ dotter undeploy  # シンボリックリンクを削除
 
 各エージェントは入力プロンプトから動作モード（`pr_review` / `self_review`）を自動判定する。出力 JSON の `mode` フィールドで実モードを追跡できる。
 
-### 旧4体観点の吸収マッピング
-
-新3体は旧4体（specification / correctness / quality-test / security-perf）の観点を吸収済み。観点ごとに担当先を整理:
-
-- `specification-reviewer` の「基本方針の妥当性」「設計判断の妥当性（代替案・既存アーキ整合）」 → **meta-reviewer**
-- `specification-reviewer` の「未実装/過剰実装/部分実装/スコープクリープ」「仕様の曖昧さ・矛盾」「ユーザーから見た影響範囲・後方互換」 → **pdm-reviewer**
-- `correctness-reviewer` 全観点（ロジック誤り・境界条件・エラーハンドリング・null安全・並行性・型安全） → **techlead-reviewer** に「正しさ・堅牢性」セクションとして明示
-- `quality-test-reviewer` のテスト構造品質（アサーション品質・テスト可読性・テスト容易性） → **techlead-reviewer** の「開発持続性」セクションに統合（テスト網羅は **pdm-reviewer** 担当のまま）
-- `security-perf-reviewer` 全観点（セキュリティ・パフォーマンス・運用） → **techlead-reviewer**（既存カバー済み）
-
 ### 合議用
 
 - `review-acceptor` / `review-challenger`: 上記 3 体の判断レベルが衝突したときに合議で採否を決める
 
-### レガシー（現状未使用、削除候補）
+## スペシャリスト（認知レンズ）エージェント
 
-以下は旧 4 分割 reviewer。観点は新3体に吸収済みで、`juggernaut` でも `pr-review` でも使われなくなったが、ファイルは残置している。完全に不要と判断したら削除してよい。
+`consult-specialists` スキル経由で呼ぶ、**専門性とスタンスを持つ 12 体** のサブエージェント。PR レビュー特化のレビュー用エージェント群（meta/pdm/techlead-reviewer 等）とは独立した枠組み。各エージェントは助言だけでなく専門領域の作業も実行する。最終判断はメインエージェント。
 
-- `specification-reviewer` / `correctness-reviewer` / `quality-test-reviewer` / `security-perf-reviewer`
+### Core Engineering
+
+| エージェント | 専門性 | 何を疑う／重視するか |
+|---|---|---|
+| `architect` | システム/境界/抽象化/データモデル/API | 長期的な構造整合性 |
+| `solver` | 問題解決/突破/プロト/代替案 | まず動く解 / 制約から逆算 |
+| `tech-lead` | 実装品質/PR 設計/レビュー/プロセス | チームで保守できるか |
+| `qa` | テスト/AC/エッジケース/影響範囲 | 仕様は曖昧、実装は壊れる |
+
+### Product Quality
+
+| エージェント | 専門性 | 何を疑う／重視するか |
+|---|---|---|
+| `taste` | 体験/情報設計/コピー/一貫性 | 気持ちよさ、わかりやすさ、削ぎ落とし |
+| `friction-maximalist` | UX/オンボーディング/認知負荷 | ユーザーは読まない・迷う・離脱する |
+| `business-realist` | 事業価値/ROI/優先順位/コスト | いま作る価値があるか / 機会費用 |
+| `data-realist` | 計測/ログ/KPI/分析 | 測れない成功を疑う |
+
+### Risk / Sharpness / Optional
+
+| エージェント | 専門性 | 何を疑う／重視するか |
+|---|---|---|
+| `failure-pessimist` | SRE/監視/復旧/運用 | 正常系より異常系 |
+| `safety-skeptic` | セキュリティ/権限/漏洩/ポリシー | 悪用される前提 |
+| `contrarian` | 差別化/戦略/尖り/反対意見 | 無難な案を疑う |
+| `debt-auditor` | 負債/移行/廃止/所有権 | 撤去条件付きで入れる |
+
+### 運用原則
+
+- **全員を常に呼ばない**: 1〜3 体に絞る。観点が重複するエージェントは代表だけ呼ぶ
+- **観点が独立なら並列、依存するなら逐次**: 例）architect + qa + safety-skeptic は並列／solver → tech-lead は逐次
+- **助言モード／作業モード**: プロンプトで明示する。作業も任せられる（テスト追加、撤去計画起草、コピー書き換え等）
+- **メインエージェントが統合・判断する**: 採用・棄却・保留を分け、衝突は目的／制約／リスク許容度に照らして決める
+- **PR 専用フローは既存スキル優先**: PR レビューは `pr-review`、実装着手は `juggernaut`。本枠組みはそれらの中で「不足する視点を補う」位置付け
+
+詳細は `shared/skills/consult-specialists/SKILL.md` を参照。
 
 ## 注意事項
 
