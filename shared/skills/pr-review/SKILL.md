@@ -11,6 +11,7 @@ description: |
 argument-hint: "[PR番号 例: #123 / 123 / URL]"
 allowed-tools:
   - Agent
+  - Skill
   - Read(*)
   - Glob(*)
   - Grep(*)
@@ -20,6 +21,8 @@ allowed-tools:
   - Bash(jq:*)
   - Bash(sort:*)
   - Bash(kill:*)
+  - Bash(ruby:*)
+  - Bash(*/mojiemoji_markdown.rb:*)
 ---
 
 # PRレビュー（汎用）
@@ -459,7 +462,21 @@ dedup・ソート済みの `findings[]` を入力に、GitHub Pull Request Revie
 
 **前提:** Phase 4-4 で各 reviewer の `findings[]` を平坦化する際、各 finding に `reviewer` フィールド（出所エージェント名、例: `"techlead-reviewer"`）を注入してある。dedup で勝った side の `reviewer` 名がそのまま生き残る。
 
+**mojiemoji-github スキルへの委譲（必須）:**
+
+バッジ URL の組み立ては **`mojiemoji-github` スキル経由で行う**。手書き URL は禁止 — `background=transparent` 等の必須パラメータ欠落事故（2026-05-12 triage-review batch の前例）を避けるため、URL 構築はヘルパースクリプト一本に揃える。
+
+このフェーズに入る前に以下を実施する:
+
+1. `Skill` ツールで **`mojiemoji-github:mojiemoji-github`**（プラグイン名前空間つきが正式 ID）を起動し、パラメータ要件（`background=transparent` 必須、ダークモードセーフ色、有効な animation/font 名）をコンテキストに読み込む
+2. ヘルパースクリプトのパスを確定する。優先順:
+   - `CLAUDE_PLUGIN_ROOT` 環境変数が設定されていればその下: `$CLAUDE_PLUGIN_ROOT/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`
+   - 既定のキャッシュパス: `~/.claude/plugins/marketplaces/mojiemoji-plugin/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`
+   - どちらも見つからなければユーザーに報告して停止
+
 **マッピング定義:**
+
+reviewer-signature の決定的マッピング（pr-review 固有のレビュアー識別性。mojiemoji-github の汎用多様性ルールより優先）:
 
 ```text
 ANIMATION_POOL = {
@@ -469,13 +486,30 @@ ANIMATION_POOL = {
 }
 # ANIMATION_POOL に存在しない reviewer 名（プロジェクト固有エージェント等）は ["chuuou_zoom"] にフォールバック
 
-SEVERITY_MAP = {
-  "must":       {"label": "要修正",              "color": "vivid-red"},
-  "suggestion": {"label": "オススメ",            "color": "vivid-blue"},
-  "nit":        {"label": "ちょっと%0A気になる", "color": "vivid-green"},
-  "good":       {"label": "いいね",              "color": "pastel-green"},
+SEVERITY_COLOR_MAP = {
+  "must":       "vivid-red",
+  "suggestion": "vivid-blue",
+  "nit":        "vivid-green",
+  "good":       "pastel-green",
 }
+
+# badge_label が空 / 制約違反のときに使うフォールバック
+SEVERITY_FALLBACK_LABEL = {
+  "must":       "要修正",
+  "suggestion": "オススメ",
+  "nit":        "ちょっと\n気になる",
+  "good":       "いいね",
+}
+
+# badge_label のバリデーション制約（mojiemoji 仕様準拠）
+BADGE_LABEL_MAX_TOTAL    = 15  # 改行を除く総文字数
+BADGE_LABEL_MAX_PER_LINE = 5   # 1 行あたり文字数
+BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 ```
+
+`color` の `vivid-*` / `pastel-*` は mojiemoji.jozo.beer のサーバ側プリセット名であり、Tailwind 域指定とは別系列。レビューバッジは「アクションバッジ」枠（mojiemoji-github SKILL.md 「バッジと併用する」節の例外条項）として扱うため、severity 識別性を優先してこの固定色のままとする。
+
+ラベルは reviewer の `badge_label` 出力を採用し、制約違反時のみ `SEVERITY_FALLBACK_LABEL` に差し替える（バリデーション規則は本フェーズ手順 4 で定義）。詳細は `shared/rules/review-badges.md` の「badge_label の制約」節を参照。
 
 **手順:**
 
@@ -488,9 +522,27 @@ SEVERITY_MAP = {
    - `i = reviewer_indices.get(reviewer, 0)`
    - `animation = pool[i % len(pool)]`
    - `reviewer_indices[reviewer] = i + 1`
-   - `sev = SEVERITY_MAP[finding["severity"]]`
-   - `badge_url = "https://mojiemoji.jozo.beer/emoji/" + sev["label"] + "?color=" + sev["color"] + "&animation=" + animation + "&font=gothic-bold"`
-   - `badge_md = "![" + sev["label"] + "](" + badge_url + ")"`
+   - `severity = finding["severity"]`
+   - `color = SEVERITY_COLOR_MAP[severity]`
+   - **`label` の決定（バリデーションとフォールバック）**:
+     - `candidate = finding.get("badge_label")`
+     - 以下のいずれかに該当する場合、`label = SEVERITY_FALLBACK_LABEL[severity]` に差し替える:
+       1. `candidate` が空 / null / 未指定
+       2. 改行（`\n`）回数が `BADGE_LABEL_MAX_NEWLINES` を超える（=4 行以上になる）
+       3. いずれかの行の文字数が `BADGE_LABEL_MAX_PER_LINE` を超える
+       4. 全行合計の文字数（改行を除く）が `BADGE_LABEL_MAX_TOTAL` を超える
+       5. いずれかの行が日本語を 1 文字も含まない（記号・英数字のみで構成されている。`N+1` のように単発の記号・英数字が日本語と混じるのは許容）
+     - 上記いずれにも該当しなければ `label = candidate`
+     - フォールバックが発動した finding は、ユーザー報告（Phase 6-3）で「badge_label がフォールバック対象になりました（理由: ...）」として件数のみ伝える
+   - **バッジ Markdown はヘルパースクリプトで生成する**:
+     ```bash
+     ruby "$HELPER" --text "$LABEL" \
+       --color "$COLOR" --animation "$ANIM" --font gothic-bold
+     # 出力は ![<label>](https://mojiemoji.jozo.beer/emoji/<label>?...&background=transparent) 形式
+     # ラベルに改行を含む場合は --text に literal `\n` を渡せば %0A にエンコードされる
+     ```
+     スクリプトはデフォルトで `background=transparent` を必ず付与する（mojiemoji-github 必須要件を満たす）
+   - `badge_md = <スクリプト出力の trim>`
    - `body = badge_md + "\n\n" + finding["rationale"]`
    - `finding["suggestion"]` があれば `body += "\n\n**改善案:** " + finding["suggestion"]` を末尾追加
    - `comments[]` に `{"path": file, "line": line, "side": side or "RIGHT", "body": body}` を append（`start_line` / `start_side` が finding にあれば併せて入れる）
@@ -501,6 +553,7 @@ SEVERITY_MAP = {
 - `title` は本文に出さない（triage 表とユーザー報告での要約用途のみ）
 - `rationale` 内に既にある絵文字（👀⚠️💡🙏👍🎉）はそのまま尊重する。post-process しない
 - アニメインデックスは dedup・ソート後の配列を走査しながら reviewer 名ごとに再カウントする。reviewer 元出力時の i は使わない
+- **`rationale` 本文への mojiemoji 飽和（インライン埋め込み）は行わない** — mojiemoji-github SKILL.md 「Review summary body」節の明示ルール: `comments[]` フィールドの inline findings は装飾せず素のまま残す（findings は技術引用で grep 性が重要）。先頭の severity バッジのみ「アクションバッジ」例外で許可される
 
 ---
 
@@ -517,7 +570,9 @@ SEVERITY_MAP = {
 
 ### 5-2. インラインコメントの書き方
 
-インラインコメント本文の **整形（バッジ・先頭装飾・suggestion 追記）は Phase 4-7 で機械的に処理される**。reviewer エージェントは構造化フィールド（`title` / `rationale` / `suggestion` / `evidence`）を返すだけで、URL や severity マークの構築は行わない。
+インラインコメント本文の **整形（バッジ URL・先頭装飾・suggestion 追記）は Phase 4-7 で機械的に処理される**。reviewer エージェントは構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返すだけで、URL の構築は行わない。
+
+`badge_label` は **その finding が「何の話か」を 15 文字以内の日本語で端的に表す短いラベル**（例: `根本原因外` / `AC漏れ` / `N+1警戒` / `見事な\n抽象化`）。文字数・改行・文字種の詳細制約と severity 別のフォールバックは `shared/rules/review-badges.md` の「badge_label の制約」節を参照。Phase 4-7 が制約違反を検出した場合は severity 別フォールバック（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）に差し替える。
 
 **reviewer に残る「文化」（rationale 内で守られるべきもの）:**
 
@@ -542,12 +597,13 @@ SEVERITY_MAP = {
 
 **整形フェーズ（Phase 4-7）が機械的に処理するもの:**
 
-- severity → 日本語ラベル / color の決定（`要修正`/`vivid-red`、`オススメ`/`vivid-blue`、`ちょっと\n気になる`/`vivid-green`、`いいね`/`pastel-green`）
+- severity → color の決定（`vivid-red` / `vivid-blue` / `vivid-green` / `pastel-green`）
+- `badge_label` のバリデーション（合計 15 文字 / 1 行 5 文字 / 改行 2 回まで / 日本語主体）と、失敗時の severity 別フォールバックラベル（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）への差し替え
 - reviewer 別アニメプールからの選択とローテーション
-- バッジ URL の構築と rationale 先頭への prepend
+- バッジ URL の構築（**mojiemoji-github のヘルパースクリプト経由**で `background=transparent` 等の必須パラメータを担保）と rationale 先頭への prepend
 - `suggestion` フィールドの末尾追記（`**改善案:** ...`）
 
-バッジ URL ビルド規則の正典は `shared/rules/review-badges.md` を参照。
+バッジ URL ビルド規則の正典は `shared/rules/review-badges.md` を参照。実際の URL 構築は mojiemoji-github スキル経由で行うため、ハードコード URL は使わない（Phase 4-7 「mojiemoji-github スキルへの委譲」節を参照）。
 
 ### 5-3. レビューサマリー
 
@@ -557,13 +613,55 @@ SEVERITY_MAP = {
 
 サマリーはテックリードとしてのマージ判断とPR全体への評価を伝える場であり、個別の指摘を伝える場ではない。個別の指摘はすべてインラインコメントが担う。読み手はサマリーの直後にインラインコメントを見るため、サマリーでインラインの内容に言及する必要はない。
 
+**mojiemoji-github スキルへの委譲（必須）:**
+
+サマリー本文（`body` フィールド）は mojiemoji-github SKILL.md でいう **review summary body surface** にあたる。インラインコメント（`comments[]`）と違い、ここは **loud（インライン飽和）デフォルト** が適用される — 本文中の 2 字熟語（`完璧` / `綺麗` / `修正` / `観点` / `確認` 等）にインライン埋め込みで mojiemoji スタンプを差し込む。
+
+サマリー本文の素案を日本語散文として書き上げた後、以下の手順で整形する:
+
+1. `Skill` ツールで `mojiemoji-github:mojiemoji-github` を起動し、本スキルのコンテキストに mojiemoji-github の規約（`verdict × finding-count` トーン表、インライン飽和ルール、Hard contract）を読み込む
+2. サマリー素案から埋め込み候補の語（2 字熟語中心、識別子・パスは除外）を抽出し、`mojiemoji-selector` サブエージェントにディスパッチする。コントラクトは:
+   ```text
+   SURFACE: review-summary-body
+   MODE:    inline
+   TONE:    loud
+   PHRASES:
+   - <語1> — <文中での意図>
+   - <語2> — <文中での意図>
+   CONSTRAINTS:
+   - Every URL MUST include &background=transparent
+   - background は必須、outline=darker outline_width=2
+   - Animation diversity 12+、underused tier 3+、color 4+ hex
+   - Inline only（block / セクション末オチ装飾 / 締めの装飾は禁止）
+   ```
+3. 返ってきたスニペット表を素案に当てはめ、本文中の該当語を `<img>` インラインスタンプに置換する
+4. 整形後の本文を `references/verification.md` § Post-dispatch spot-check に従ってチェック（必須パラメータ欠落、identifier スタンプ漏れ、3 連スタンプ）してから Phase 6-2 に渡す
+
+**例外:** サマリーが 1 行で済む再レビューや極めて短い場合は、無理に飽和させず Unicode 絵文字（🎉 / ✨ / 👍）で trailing 装飾するだけでもよい。mojiemoji-github SKILL.md「鉄則: スタンプ禁止 identifier」と「文章を分割する以前に mojiemoji にしなくていい」原則を優先する。
+
 **APPROVE 時の LGTM バッジ:**
 
-レビューイベントが `APPROVE` になる場合（must が 0 件、または APPROVE 後再レビューで mustなし）、サマリー本文に **LGTM バッジ** を埋め込む。テキストの `LGTM 🎉` の代わりに以下の Markdown 画像参照を使う（正典: `shared/rules/review-badges.md`）:
+レビューイベントが `APPROVE` になる場合（must が 0 件、または APPROVE 後再レビューで mustなし）、サマリー本文に **LGTM バッジ** を埋め込む。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
 
-```markdown
-![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=orange&animation=kira&font=gothic-bold)
-```
+ラベルは `LGTM` 固定だが、装飾（color / animation / font）は APPROVE のたびにバリエーションを変えて「祝祭感」を出す。実装は **`mojiemoji-selector` サブエージェントに loud で委譲する**:
+
+1. すでに本フェーズ序盤でサマリー本文整形のために `mojiemoji-selector` を起動している場合は、同じバッチ内で LGTM バッジも依頼する（PHRASES に `LGTM` を 1 件追加するだけでよい）
+2. それ以外（サマリー素案がほぼ空、または LGTM だけで済む場合）は新たに `mojiemoji-selector` を起動し、以下のコントラクトで依頼する:
+   ```text
+   SURFACE: review-summary-body
+   MODE:    lgtm-badge
+   TONE:    loud
+   PHRASES:
+   - LGTM — マージ可の宣言
+   CONSTRAINTS:
+   - Every URL MUST include &background=transparent
+   - ラベルは "LGTM" 固定（差し替え禁止）
+   - 装飾（color / animation / font）はバリエーション最大化
+   - block ではなく inline `<img>` スニペットで返す
+   ```
+3. 返ってきた `<img>` スニペットをそのままサマリー本文に貼り込む
+
+ヘルパースクリプト直接呼び出し（旧 `ruby "$HELPER" --text "LGTM" --color orange --animation kira --font gothic-bold`）は廃止。`mojiemoji-github` 側で都度装飾を選ぶことで `background=transparent` 等の必須要件と装飾多様性を同時に担保する。詳細は `shared/rules/review-badges.md` の「APPROVE 時 LGTM バッジ（特別枠）」節を参照。
 
 `COMMENT` / `REQUEST_CHANGES` のサマリーには LGTM バッジは付けない（マージ判断と矛盾するため）。
 
@@ -584,7 +682,7 @@ SEVERITY_MAP = {
 
 1. **判断から入る** — マージ可否を述べてから補足。例: 「問題ありません。マージしてOKです。」
 2. **変更の核心から入る** — PRの主題に直接触れる。例: 「認証フローの刷新、設計・実装ともに良いです。」
-3. **端的に評価する** — 一言で済ませる。APPROVE 時は LGTM バッジを使う。例: `![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=orange&animation=kira&font=gothic-bold)`
+3. **端的に評価する** — 一言で済ませる。APPROVE 時は `mojiemoji-selector` 経由で LGTM バッジを生成して使う（上記「APPROVE 時の LGTM バッジ」節を参照）。装飾は毎回変わるので「同じ LGTM」にならない。
 4. **修正要求から入る** — mustがある場合、マージブロッカーを端的に伝える。例: 「エラーハンドリングに修正が必要です。」
 
 型の選び方: PRの内容・規模に応じて自然な型を選ぶ。ただし「印象から入る + ただ、」の型を連続で使うのは避けること。
@@ -604,8 +702,8 @@ SEVERITY_MAP = {
 
 **再レビューサマリー例:**
 
-再レビューのサマリーは初回より短く、あっさりと書く。mustがなければ1行で済ませる。APPROVE になる場合は LGTM バッジを使う。例:
-> 修正確認しました。![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=orange&animation=kira&font=gothic-bold)
+再レビューのサマリーは初回より短く、あっさりと書く。mustがなければ1行で済ませる。APPROVE になる場合は LGTM バッジを使う（`mojiemoji-selector` 経由で生成。装飾はバリエーション最大化。上記「APPROVE 時の LGTM バッジ」節参照）。例:
+> 修正確認しました。<LGTM バッジ（mojiemoji-selector 生成）>
 
 再レビューでの指摘は最大3件に絞る。それ以上ある場合はユーザーに確認する。
 
@@ -623,10 +721,10 @@ SEVERITY_MAP = {
 
 これらは参考であり、コピーして使い回す対象ではない。PRの文脈に合わせて自分の言葉で書くこと。
 
-> 問題ありません。マージしてOKです。テストも十分です。（判断から入る、APPROVE）
-> キャッシュ戦略の見直し、設計・実装ともに良いです。（変更の核心から入る、APPROVE）
-> ![LGTM](https://mojiemoji.jozo.beer/emoji/LGTM?color=orange&animation=kira&font=gothic-bold) （端的に評価する、APPROVE）
-> 並行処理周りに修正が必要です。修正してからマージしましょう。（修正要求から入る、REQUEST_CHANGES）
+> 問題ありません。マージしてOKです。テストも十分です。（判断から入る、APPROVE。`完璧` / `OK` 等にインライン埋め込み可）
+> キャッシュ戦略の見直し、設計・実装ともに良いです。（変更の核心から入る、APPROVE。`設計` / `実装` / `見直し` 等にインライン埋め込み可）
+> <LGTM バッジ（mojiemoji-selector 生成）> （端的に評価する、APPROVE）
+> 並行処理周りに修正が必要です。修正してからマージしましょう。（修正要求から入る、REQUEST_CHANGES。`修正` / `要件` 等にインライン埋め込み可）
 
 ### 5-4. 校正チェック
 
@@ -686,7 +784,7 @@ gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
       "path": "src/xxx.rs",
       "line": 42,
       "side": "RIGHT",
-      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold)\nコメント内容"
+      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold&background=transparent)\n\nコメント内容"
     }
   ]
 }
