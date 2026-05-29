@@ -23,8 +23,8 @@ BG_WORKTREE="#4F8A4A"    # green
 BG_ISSUE="#8A5A9E"       # magenta (ticket)
 BG_STATUS="#2C3150"      # dark indigo
 # L3 resources: dark-indigo gauges → gold cost
-BG_GAUGE="#2C3052"       # ctx
-BG_RATE="#26304A"        # 5h / 7d gauges
+BG_GAUGE="#20243A"       # ctx
+BG_RATE="#1C2134"        # 5h / 7d gauges
 BG_COST="#8A6D2A"        # gold
 # PR review_state
 BG_PR_APPROVED="#3A7D44" # green
@@ -68,7 +68,7 @@ _end() {  # trailing separator drawn on the terminal background
 # Emits literal \033 escape sequences (interpreted later by `echo -e`).
 gauge2() {
   local top="$1" bot="$2" w="${3:-18}"
-  local tf=0 bf=0 ta="58;64;90"
+  local tf=0 bf=0 ta="40;44;64"
   if [ -n "$top" ]; then
     tf=$(( top * w / 100 ))
     if   [ "$top" -ge 90 ]; then ta="247;118;142"   # red
@@ -76,7 +76,7 @@ gauge2() {
     else                         ta="158;206;106"; fi # green
   fi
   [ -n "$bot" ] && bf=$(( bot * w / 100 ))
-  local ba="125;207;255" td="58;64;90" bd="58;64;90" i bar="" fg bg  # ba=cyan(time), td/bd=empty track
+  local ba="125;207;255" td="40;44;64" bd="40;44;64" i bar="" fg bg  # ba=cyan(time), td/bd=empty track
   for (( i=0; i<w; i++ )); do
     if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$td"; fi
     if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$bd"; fi
