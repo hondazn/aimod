@@ -11,26 +11,28 @@ _link() { echo "\033]8;;${1}\007${2}\033]8;;\007"; }
 # ─── Powerline separator (nerdfont U+E0B0) ───
 PL=$(printf '\xee\x82\xb0')
 
-# ─── Segment palette (Tokyo Night, darkened — colorful & legible on a dark-blue bg) ───
-# L1 identity: slate → blue → purple
-BG_VER="#3A4060"         # slate (lifted off the terminal bg)
-BG_MODEL="#28396A"       # blue
-BG_MODE="#473C72"        # purple
+# ─── Segment palette (harmonized — semantic hues at unified saturation/lightness) ───
+# Each background is its semantic hue rendered at the same S≈40% / L≈28%, so the
+# blocks read as one coordinated set; backdrops (status/gauges) sit darker on purpose.
+# L1 identity
+BG_VER="#363C4E"         # slate (metadata)
+BG_MODEL="#2B3E64"       # blue
+BG_MODE="#432B64"        # purple
 # L2 workspace
-BG_REPO="#1E544E"        # teal
-BG_BRANCH="#284868"      # sky blue
-BG_WORKTREE="#325733"    # green
-BG_ISSUE="#573A63"       # magenta (ticket)
-BG_STATUS="#1E2236"      # dark indigo
-# L3 resources: dark-indigo gauges → gold cost
-BG_GAUGE="#2C3350"       # ctx (lifted off the terminal bg)
-BG_RATE="#1C2134"        # 5h / 7d gauges
-BG_COST="#5A481F"        # gold
+BG_REPO="#2B645C"        # teal
+BG_BRANCH="#2B4C64"      # sky blue
+BG_WORKTREE="#2B643E"    # green
+BG_ISSUE="#6A2F6A"       # magenta (ticket)
+BG_STATUS="#22262F"      # dark neutral (git-count backdrop)
+# L3 resources
+BG_GAUGE="#2F364C"       # ctx
+BG_RATE="#1C2131"        # 5h / 7d gauges (dark so bars pop)
+BG_COST="#6D5D2C"        # gold
 # PR review_state
-BG_PR_APPROVED="#265230" # green
-BG_PR_PENDING="#62501F"  # amber
-BG_PR_CHANGES="#732E38"  # red
-BG_PR_DRAFT="#353A52"    # slate
+BG_PR_APPROVED="#29653D" # green
+BG_PR_PENDING="#6D5D2C"  # amber
+BG_PR_CHANGES="#762D33"  # red
+BG_PR_DRAFT="#424757"    # slate
 
 # Foreground colors
 FG_LIGHT="#C0CAF5"       # Tokyo Night foreground (cool white)
