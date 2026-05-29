@@ -13,7 +13,7 @@ PL=$(printf '\xee\x82\xb0')
 
 # ─── Segment palette (Tokyo Night, darkened — colorful & legible on a dark-blue bg) ───
 # L1 identity: slate → blue → purple
-BG_VER="#2C3047"         # slate
+BG_VER="#3A4060"         # slate (lifted off the terminal bg)
 BG_MODEL="#28396A"       # blue
 BG_MODE="#473C72"        # purple
 # L2 workspace
@@ -23,7 +23,7 @@ BG_WORKTREE="#325733"    # green
 BG_ISSUE="#573A63"       # magenta (ticket)
 BG_STATUS="#1E2236"      # dark indigo
 # L3 resources: dark-indigo gauges → gold cost
-BG_GAUGE="#20243A"       # ctx
+BG_GAUGE="#2C3350"       # ctx (lifted off the terminal bg)
 BG_RATE="#1C2134"        # 5h / 7d gauges
 BG_COST="#5A481F"        # gold
 # PR review_state
