@@ -2,9 +2,6 @@
 
 input=$(cat)
 
-# ─── Powerline separator ───
-PL=$(printf '\xee\x82\xb0')  # U+E0B0
-
 # ─── Color helpers ───
 h2r() { local h="${1#\#}"; echo "$((16#${h:0:2}));$((16#${h:2:2}));$((16#${h:4:2}))"; }
 
@@ -28,35 +25,19 @@ BG_PR_PENDING="#8A6D1F"
 BG_PR_CHANGES="#C62828"
 BG_PR_DRAFT="#555555"
 
-# ─── Segment builder ───
-# Tracks previous segment bg to render Powerline separator transitions
-_prev=""
+# ─── Segment builder (flat color blocks, no Powerline separators) ───
 _out=""
 
-_sep() {
-  local next_bg=$1
-  if [ -n "$_prev" ]; then
-    _out+="\033[38;2;$(h2r "$_prev")m\033[48;2;$(h2r "$next_bg")m${PL}"
-  fi
-}
-
 _seg() {  # $1=bg $2=fg $3=text
-  _sep "$1"
   _out+="\033[48;2;$(h2r "$1")m\033[38;2;$(h2r "$2")m ${3} "
-  _prev="$1"
 }
 
 _seg_raw() {  # $1=bg $2=content (may contain ANSI fg codes)
-  _sep "$1"
   _out+="\033[48;2;$(h2r "$1")m ${2}\033[48;2;$(h2r "$1")m "
-  _prev="$1"
 }
 
 _end() {
-  if [ -n "$_prev" ]; then
-    _out+="\033[0m\033[38;2;$(h2r "$_prev")m${PL}\033[0m"
-  fi
-  _prev=""
+  _out+="\033[0m"
 }
 
 # ─── Two-tier gauge (▀ U+2580) ───
@@ -65,7 +46,7 @@ _end() {
 # Emits literal \033 escape sequences (interpreted later by `echo -e`).
 gauge2() {
   local top="$1" bot="$2" w="${3:-18}"
-  local tf=0 bf=0 ta="72;72;72"
+  local tf=0 bf=0 ta="50;50;50"
   if [ -n "$top" ]; then
     tf=$(( top * w / 100 ))
     if   [ "$top" -ge 90 ]; then ta="198;40;40"
@@ -73,7 +54,7 @@ gauge2() {
     else                         ta="46;160;67"; fi
   fi
   [ -n "$bot" ] && bf=$(( bot * w / 100 ))
-  local ba="58;140;214" td="72;72;72" bd="72;72;72" i bar="" fg bg
+  local ba="58;140;214" td="50;50;50" bd="50;50;50" i bar="" fg bg
   for (( i=0; i<w; i++ )); do
     if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$td"; fi
     if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$bd"; fi
@@ -95,15 +76,12 @@ WORKTREE=$(echo "$input" | jq -r '.worktree.name // empty')
 PR_NUM=$(echo "$input" | jq -r '.pr.number // empty')
 PR_STATE=$(echo "$input" | jq -r '.pr.review_state // empty')
 PR_URL=$(echo "$input" | jq -r '.pr.url // empty')
-CTX_PCT=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 CTX_USAGE=$(echo "$input" | jq -c '.context_window.current_usage // empty')
 COST_USD=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
 FIVE_RESET=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 FIVE_USE=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 SEVEN_RESET=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 SEVEN_USE=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-
-CTX_PCT="${CTX_PCT%.*}"   # coerce to int for gauge math
 
 # Current context token count (input + cache_creation + cache_read)
 CUR_TOK=""
@@ -225,9 +203,9 @@ fi
 # ═══════════════════════════════════════
 #  Line 1: Claude info + mode
 # ═══════════════════════════════════════
-_prev=""; _out=""
-[ -n "$MODEL" ] && _seg "$BG_MODEL" "#FFFFFF" "🤖 ${MODEL}"
+_out=""
 [ -n "$VER" ]   && _seg "$BG_VER" "#B0B0B0" "💥${VER}"
+[ -n "$MODEL" ] && _seg "$BG_MODEL" "#FFFFFF" "🤖 ${MODEL}"
 [ -n "$MODE_PARTS" ] && _seg "$BG_MODE" "#C9CDDA" "${MODE_PARTS}"
 _end
 LINE1="$_out"
@@ -235,7 +213,7 @@ LINE1="$_out"
 # ═══════════════════════════════════════
 #  Line 2: Git / GitHub info + PR
 # ═══════════════════════════════════════
-_prev=""; _out=""
+_out=""
 
 if [ -n "$GH_BASE_URL" ]; then
   _seg "$BG_REPO" "#FFFFFF" "🚀 $(_link "$GH_BASE_URL" "$DIR")"
@@ -283,15 +261,12 @@ LINE2="$_out"
 #  Line 3: ctx (token# + fill bar) + 5h/7d two-tier gauges + cost
 #  Two-tier gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
 # ═══════════════════════════════════════
-_prev=""; _out=""
+_out=""
 
-# 🧠 ctx: token count + fill % (no bar)
-if [ -n "$CTX_PCT" ] || [ -n "$CUR_TOK" ]; then
+# 🧠 ctx: token count only
+if [ -n "$CUR_TOK" ]; then
   ge="\033[48;2;$(h2r "$BG_GAUGE")m"
-  ctx_body="\033[38;2;200;200;200m${ge}🧠"
-  [ -n "$CUR_TOK" ] && ctx_body+=" $(printf "%'d" "$CUR_TOK")"
-  [ -n "$CTX_PCT" ] && ctx_body+=" \033[38;2;160;200;120m${ge}${CTX_PCT}%"
-  _seg_raw "$BG_GAUGE" "${ctx_body}"
+  _seg_raw "$BG_GAUGE" "\033[38;2;200;200;200m${ge}🧠 $(printf "%'d" "$CUR_TOK")"
 fi
 
 # ⏳ 5h gauge: usage (top) / time-elapsed (bottom)

@@ -51,39 +51,39 @@ run "full" "$REPO" '{
   "context_window":{"used_percentage":62,"current_usage":{"input_tokens":50000,"cache_creation_input_tokens":30000,"cache_read_input_tokens":44500}},
   "cost":{"total_cost_usd":0.34,"total_duration_ms":480000,"total_lines_added":156,"total_lines_removed":23},
   "rate_limits":{"five_hour":{"used_percentage":23,"resets_at":9999999999},"seven_day":{"used_percentage":12,"resets_at":9999999999}}
-}' -- "🤖 Opus" "💥2.1.160" "🎚 high" "💭" "🎨 explanatory" "🔀#42" "approved" "🧠" "124" "62%" "⏰" "📆" "💰" '$0.34' ! "🔋" "Σ" "ctx 62%"
+}' -- "🤖 Opus" "💥2.1.160" "🎚 high" "💭" "🎨 explanatory" "🔀#42" "approved" "🧠" "124" "⏰" "📆" "💰" '$0.34' ! "🔋" "Σ" "62%" "ctx"
 
-# 2) no PR
+# 2) no PR (token count from current_usage, no ctx %)
 run "no-pr" "$REPO" '{
   "model":{"display_name":"Opus"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
-  "context_window":{"used_percentage":40},
+  "context_window":{"used_percentage":40,"current_usage":{"input_tokens":80000}},
   "rate_limits":{"five_hour":{"used_percentage":10,"resets_at":9999999999},"seven_day":{"used_percentage":5,"resets_at":9999999999}}
-}' -- "🧠" "40%" "⏰" "📆" ! "🔀"
+}' -- "🧠" "⏰" "📆" ! "🔀" "40%"
 
 # 3) no rate_limits (free tier / before first response) → 5h+7d gauges omitted, ctx still renders
 run "no-ratelimits" "$REPO" '{
   "model":{"display_name":"Sonnet"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
-  "context_window":{"used_percentage":15}
-}' -- "🤖 Sonnet" "🧠" "15%" ! "⏰" "📆" "🔋"
+  "context_window":{"used_percentage":15,"current_usage":{"input_tokens":33000}}
+}' -- "🤖 Sonnet" "🧠" ! "⏰" "📆" "🔋"
 
 # 4) worktree session → ⌥ marker
 run "worktree" "$REPO" '{
   "model":{"display_name":"Opus"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
-  "worktree":{"name":"feat-foo"},"context_window":{"used_percentage":20}
-}' -- "⌥ feat-foo" "🧠" "20%"
+  "worktree":{"name":"feat-foo"},"context_window":{"used_percentage":20,"current_usage":{"input_tokens":12000}}
+}' -- "⌥ feat-foo" "🧠"
 
 # 5) not a git repo → repo falls back to project_dir basename, no branch
 run "not-git" "$TMP" '{
   "model":{"display_name":"Opus"},"version":"2.1.160","workspace":{"project_dir":"/x/myproj"},
-  "context_window":{"used_percentage":30}
-}' -- "🚀 myproj" "🧠" "30%" ! "⚡"
+  "context_window":{"used_percentage":30,"current_usage":{"input_tokens":45000}}
+}' -- "🚀 myproj" "🧠" ! "⚡"
 
 # 6) effort-less model + default output_style → mode markers absent
 run "no-effort-default-style" "$REPO" '{
   "model":{"display_name":"Haiku"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
   "thinking":{"enabled":false},"output_style":{"name":"default"},
-  "context_window":{"used_percentage":5}
-}' -- "🤖 Haiku" "🧠" "5%" ! "🎚" "🎨" "💭"
+  "context_window":{"used_percentage":5,"current_usage":{"input_tokens":7000}}
+}' -- "🤖 Haiku" "🧠" ! "🎚" "🎨" "💭"
 
 # 7) empty / minimal payload → must not crash
 run "minimal" "$TMP" '{}' --
