@@ -65,7 +65,7 @@ _end() {
 # Emits literal \033 escape sequences (interpreted later by `echo -e`).
 gauge2() {
   local top="$1" bot="$2" w="${3:-18}"
-  local tf=0 bf=0 ta="70;70;70"
+  local tf=0 bf=0 ta="72;72;72"
   if [ -n "$top" ]; then
     tf=$(( top * w / 100 ))
     if   [ "$top" -ge 90 ]; then ta="198;40;40"
@@ -73,28 +73,11 @@ gauge2() {
     else                         ta="46;160;67"; fi
   fi
   [ -n "$bot" ] && bf=$(( bot * w / 100 ))
-  local ba="58;140;214" td="70;70;70" bd="42;42;42" i bar="" fg bg
+  local ba="58;140;214" td="72;72;72" bd="72;72;72" i bar="" fg bg
   for (( i=0; i<w; i++ )); do
     if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$td"; fi
     if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$bd"; fi
     bar+="\033[38;2;${fg}m\033[48;2;${bg}m▀"
-  done
-  printf '%s' "$bar"
-}
-
-# ─── Single-tier fill bar (▀ with fg=bg=value color), for context gauge ───
-gauge_full() {
-  local p="$1" w="${2:-8}" f=0 c="55;55;55"
-  if [ -n "$p" ]; then
-    f=$(( p * w / 100 ))
-    if   [ "$p" -ge 90 ]; then c="198;40;40"
-    elif [ "$p" -ge 70 ]; then c="245;127;23"
-    else                       c="46;160;67"; fi
-  fi
-  local d="55;55;55" i bar="" col
-  for (( i=0; i<w; i++ )); do
-    if [ "$i" -lt "$f" ]; then col="$c"; else col="$d"; fi
-    bar+="\033[38;2;${col}m\033[48;2;${col}m▀"
   done
   printf '%s' "$bar"
 }
@@ -302,12 +285,11 @@ LINE2="$_out"
 # ═══════════════════════════════════════
 _prev=""; _out=""
 
-# 🧠 ctx: token count + single-tier fill bar + fill %
+# 🧠 ctx: token count + fill % (no bar)
 if [ -n "$CTX_PCT" ] || [ -n "$CUR_TOK" ]; then
   ge="\033[48;2;$(h2r "$BG_GAUGE")m"
   ctx_body="\033[38;2;200;200;200m${ge}🧠"
   [ -n "$CUR_TOK" ] && ctx_body+=" $(printf "%'d" "$CUR_TOK")"
-  ctx_body+=" $(gauge_full "$CTX_PCT" 8)${ge}"
   [ -n "$CTX_PCT" ] && ctx_body+=" \033[38;2;160;200;120m${ge}${CTX_PCT}%"
   _seg_raw "$BG_GAUGE" "${ctx_body}"
 fi
@@ -315,13 +297,13 @@ fi
 # ⏳ 5h gauge: usage (top) / time-elapsed (bottom)
 if [ -n "$FIVE_USE" ] || [ -n "$TIME5" ]; then
   re="\033[48;2;$(h2r "$BG_RATE")m"
-  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}⏳ $(gauge2 "${FIVE_USE%.*}" "$TIME5" 12)${re}"
+  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}⏰ $(gauge2 "${FIVE_USE%.*}" "$TIME5" 12)${re}"
 fi
 
 # 🗓 7d gauge: usage (top) / time-elapsed (bottom)
 if [ -n "$SEVEN_USE" ] || [ -n "$TIME7" ]; then
   re="\033[48;2;$(h2r "$BG_RATE")m"
-  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}🗓 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)${re}"
+  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}📆 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)${re}"
 fi
 
 # Cost ($ only)

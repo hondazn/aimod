@@ -51,20 +51,20 @@ run "full" "$REPO" '{
   "context_window":{"used_percentage":62,"current_usage":{"input_tokens":50000,"cache_creation_input_tokens":30000,"cache_read_input_tokens":44500}},
   "cost":{"total_cost_usd":0.34,"total_duration_ms":480000,"total_lines_added":156,"total_lines_removed":23},
   "rate_limits":{"five_hour":{"used_percentage":23,"resets_at":9999999999},"seven_day":{"used_percentage":12,"resets_at":9999999999}}
-}' -- "🤖 Opus" "💥2.1.160" "🎚 high" "💭" "🎨 explanatory" "🔀#42" "approved" "🧠" "124" "62%" "⏳" "🗓" "💰" '$0.34' ! "🔋" "Σ" "ctx 62%"
+}' -- "🤖 Opus" "💥2.1.160" "🎚 high" "💭" "🎨 explanatory" "🔀#42" "approved" "🧠" "124" "62%" "⏰" "📆" "💰" '$0.34' ! "🔋" "Σ" "ctx 62%"
 
 # 2) no PR
 run "no-pr" "$REPO" '{
   "model":{"display_name":"Opus"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
   "context_window":{"used_percentage":40},
   "rate_limits":{"five_hour":{"used_percentage":10,"resets_at":9999999999},"seven_day":{"used_percentage":5,"resets_at":9999999999}}
-}' -- "🧠" "40%" "⏳" "🗓" ! "🔀"
+}' -- "🧠" "40%" "⏰" "📆" ! "🔀"
 
 # 3) no rate_limits (free tier / before first response) → 5h+7d gauges omitted, ctx still renders
 run "no-ratelimits" "$REPO" '{
   "model":{"display_name":"Sonnet"},"version":"2.1.160","workspace":{"project_dir":"/x/aimod"},
   "context_window":{"used_percentage":15}
-}' -- "🤖 Sonnet" "🧠" "15%" ! "⏳" "🗓" "🔋"
+}' -- "🤖 Sonnet" "🧠" "15%" ! "⏰" "📆" "🔋"
 
 # 4) worktree session → ⌥ marker
 run "worktree" "$REPO" '{
