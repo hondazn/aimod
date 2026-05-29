@@ -11,26 +11,26 @@ _link() { echo "\033]8;;${1}\007${2}\033]8;;\007"; }
 # ─── Powerline separator (nerdfont U+E0B0) ───
 PL=$(printf '\xee\x82\xb0')
 
-# ─── Segment palette (Tokyo Night — colorful & legible on a dark-blue bg) ───
+# ─── Segment palette (Tokyo Night, darkened — colorful & legible on a dark-blue bg) ───
 # L1 identity: slate → blue → purple
-BG_VER="#414868"         # slate
-BG_MODEL="#3D59A1"       # blue
-BG_MODE="#6E5BB5"        # purple
+BG_VER="#2C3047"         # slate
+BG_MODEL="#28396A"       # blue
+BG_MODE="#473C72"        # purple
 # L2 workspace
-BG_REPO="#2A7D75"        # teal
-BG_BRANCH="#3B6EA5"      # sky blue
-BG_WORKTREE="#4F8A4A"    # green
-BG_ISSUE="#8A5A9E"       # magenta (ticket)
-BG_STATUS="#2C3150"      # dark indigo
+BG_REPO="#1E544E"        # teal
+BG_BRANCH="#284868"      # sky blue
+BG_WORKTREE="#325733"    # green
+BG_ISSUE="#573A63"       # magenta (ticket)
+BG_STATUS="#1E2236"      # dark indigo
 # L3 resources: dark-indigo gauges → gold cost
 BG_GAUGE="#20243A"       # ctx
 BG_RATE="#1C2134"        # 5h / 7d gauges
-BG_COST="#8A6D2A"        # gold
+BG_COST="#5A481F"        # gold
 # PR review_state
-BG_PR_APPROVED="#3A7D44" # green
-BG_PR_PENDING="#9E7D2E"  # amber
-BG_PR_CHANGES="#B14B58"  # red
-BG_PR_DRAFT="#4A5170"    # slate
+BG_PR_APPROVED="#265230" # green
+BG_PR_PENDING="#62501F"  # amber
+BG_PR_CHANGES="#732E38"  # red
+BG_PR_DRAFT="#353A52"    # slate
 
 # Foreground colors
 FG_LIGHT="#C0CAF5"       # Tokyo Night foreground (cool white)
