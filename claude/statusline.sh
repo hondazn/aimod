@@ -82,12 +82,21 @@ gauge2() {
   printf '%s' "$bar"
 }
 
-# ─── Rate-limit usage foreground color by percent ───
-rate_fg() {
-  local p=${1%.*}
-  if   [ "$p" -ge 90 ]; then printf "\033[38;2;255;82;82m"
-  elif [ "$p" -ge 70 ]; then printf "\033[38;2;255;183;77m"
-  else                       printf "\033[38;2;102;187;106m"; fi
+# ─── Single-tier fill bar (▀ with fg=bg=value color), for context gauge ───
+gauge_full() {
+  local p="$1" w="${2:-8}" f=0 c="55;55;55"
+  if [ -n "$p" ]; then
+    f=$(( p * w / 100 ))
+    if   [ "$p" -ge 90 ]; then c="198;40;40"
+    elif [ "$p" -ge 70 ]; then c="245;127;23"
+    else                       c="46;160;67"; fi
+  fi
+  local d="55;55;55" i bar="" col
+  for (( i=0; i<w; i++ )); do
+    if [ "$i" -lt "$f" ]; then col="$c"; else col="$d"; fi
+    bar+="\033[38;2;${col}m\033[48;2;${col}m▀"
+  done
+  printf '%s' "$bar"
 }
 
 # ═══════════════════════════════════════
@@ -104,15 +113,20 @@ PR_NUM=$(echo "$input" | jq -r '.pr.number // empty')
 PR_STATE=$(echo "$input" | jq -r '.pr.review_state // empty')
 PR_URL=$(echo "$input" | jq -r '.pr.url // empty')
 CTX_PCT=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+CTX_USAGE=$(echo "$input" | jq -c '.context_window.current_usage // empty')
 COST_USD=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
-DUR_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
-LINES_ADD=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
-LINES_DEL=$(echo "$input" | jq -r '.cost.total_lines_removed // empty')
 FIVE_RESET=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 FIVE_USE=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+SEVEN_RESET=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 SEVEN_USE=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 
 CTX_PCT="${CTX_PCT%.*}"   # coerce to int for gauge math
+
+# Current context token count (input + cache_creation + cache_read)
+CUR_TOK=""
+if [ -n "$CTX_USAGE" ] && [ "$CTX_USAGE" != "null" ]; then
+  CUR_TOK=$(echo "$CTX_USAGE" | jq '(.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0)')
+fi
 
 # ─── Repo: owner/repo from git remote, fallback to dirname ───
 DIR=""
@@ -200,21 +214,20 @@ if [ -n "$FIVE_RESET" ]; then
   TIME5=$(( (18000 - remain) * 100 / 18000 ))
 fi
 
-# ─── Cost cluster text ───
-COST_SEG=""
-if [ -n "$COST_USD" ]; then
-  COST_SEG=$(printf '💰 $%.2f' "$COST_USD")
-  if [ -n "$DUR_MS" ]; then
-    dms="${DUR_MS%.*}"; ts=$(( dms / 1000 ))
-    dh=$(( ts / 3600 )); dm=$(( (ts % 3600) / 60 )); ds=$(( ts % 60 ))
-    if   [ "$dh" -gt 0 ]; then COST_SEG+=" ·${dh}h${dm}m·"
-    elif [ "$dm" -gt 0 ]; then COST_SEG+=" ·${dm}m·"
-    else                       COST_SEG+=" ·${ds}s·"; fi
-  fi
-  if [ -n "$LINES_ADD" ] || [ -n "$LINES_DEL" ]; then
-    COST_SEG+=" Σ+${LINES_ADD:-0} -${LINES_DEL:-0}"
-  fi
+# ─── 7d rate-limit window time-elapsed % (from resets_at) ───
+TIME7=""
+if [ -n "$SEVEN_RESET" ]; then
+  sr="${SEVEN_RESET%.*}"
+  now=$(date +%s)
+  remain=$(( sr - now ))
+  [ "$remain" -lt 0 ] && remain=0
+  [ "$remain" -gt 604800 ] && remain=604800   # cap at 7d window
+  TIME7=$(( (604800 - remain) * 100 / 604800 ))
 fi
+
+# ─── Cost cluster text (dollar only) ───
+COST_SEG=""
+[ -n "$COST_USD" ] && COST_SEG=$(printf '💰 $%.2f' "$COST_USD")
 
 # ─── Mode cluster text (effort / thinking / output_style) ───
 MODE_PARTS=""
@@ -284,33 +297,34 @@ _end
 LINE2="$_out"
 
 # ═══════════════════════════════════════
-#  Line 3: 2-tier gauge + rate usage + cost
+#  Line 3: ctx (token# + fill bar) + 5h/7d two-tier gauges + cost
+#  Two-tier gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
 # ═══════════════════════════════════════
 _prev=""; _out=""
 
-# Two-tier gauge: top = context fill %, bottom = 5h window time-elapsed %
-G=$(gauge2 "$CTX_PCT" "$TIME5" 18)
-ge="\033[48;2;$(h2r "$BG_GAUGE")m"
-readout="\033[38;2;160;200;120m${ge}ctx ${CTX_PCT:-–}%"
-[ -n "$TIME5" ] && readout+=" \033[38;2;120;170;220m${ge}⏱${TIME5}%"
-_seg_raw "$BG_GAUGE" "${G}${ge} ${readout}"
-
-# Rate-limit usage (quota consumed): 5h / 7d
-if [ -n "$FIVE_USE" ] || [ -n "$SEVEN_USE" ]; then
-  re="\033[48;2;$(h2r "$BG_RATE")m"
-  usg="\033[38;2;200;200;200m${re}🔋 "
-  if [ -n "$FIVE_USE" ]; then
-    p="${FIVE_USE%.*}"; usg+="$(rate_fg "$p")${re}5h ${p}%"
-  fi
-  if [ -n "$SEVEN_USE" ]; then
-    p="${SEVEN_USE%.*}"
-    [ -n "$FIVE_USE" ] && usg+=" \033[38;2;120;120;120m${re}· "
-    usg+="$(rate_fg "$p")${re}7d ${p}%"
-  fi
-  _seg_raw "$BG_RATE" "${usg}${re}"
+# 🧠 ctx: token count + single-tier fill bar + fill %
+if [ -n "$CTX_PCT" ] || [ -n "$CUR_TOK" ]; then
+  ge="\033[48;2;$(h2r "$BG_GAUGE")m"
+  ctx_body="\033[38;2;200;200;200m${ge}🧠"
+  [ -n "$CUR_TOK" ] && ctx_body+=" $(printf "%'d" "$CUR_TOK")"
+  ctx_body+=" $(gauge_full "$CTX_PCT" 8)${ge}"
+  [ -n "$CTX_PCT" ] && ctx_body+=" \033[38;2;160;200;120m${ge}${CTX_PCT}%"
+  _seg_raw "$BG_GAUGE" "${ctx_body}"
 fi
 
-# Cost cluster
+# ⏳ 5h gauge: usage (top) / time-elapsed (bottom)
+if [ -n "$FIVE_USE" ] || [ -n "$TIME5" ]; then
+  re="\033[48;2;$(h2r "$BG_RATE")m"
+  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}⏳ $(gauge2 "${FIVE_USE%.*}" "$TIME5" 12)${re}"
+fi
+
+# 🗓 7d gauge: usage (top) / time-elapsed (bottom)
+if [ -n "$SEVEN_USE" ] || [ -n "$TIME7" ]; then
+  re="\033[48;2;$(h2r "$BG_RATE")m"
+  _seg_raw "$BG_RATE" "\033[38;2;200;200;200m${re}🗓 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)${re}"
+fi
+
+# Cost ($ only)
 [ -n "$COST_SEG" ] && _seg "$BG_COST" "#E8DFA0" "$COST_SEG"
 _end
 LINE3="$_out"
