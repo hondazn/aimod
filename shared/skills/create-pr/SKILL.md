@@ -1,26 +1,11 @@
 ---
-name: create-pr
+allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
+argument-hint: '[補足 例: base ブランチ指定・draft PR 指示 など。省略可]'
 description: |
-  GitHub Pull Requestを作成する。現在のブランチの差分とコミット履歴・関連Issue・既存PRのパターンを読み取り、
-  タイトル・本文（変更概要・動作確認エビデンス・Test Plan・Issue紐付け・レビュー重点確認ポイント）を生成し、`gh pr create`で即起票する。
-  確認ゲートは置かず、仮決め即実行を基本とする。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
-  トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」
-  「変更をPRにまとめて」「作業をPRにして」「PR化して」。
-  明示的に「PR」という語を含まなくても、コミット後の「共有準備」「リモートに出して」「レビュー依頼して」
-  といった依頼や、dev-orchestrationのPhase 6でPR作成が必要と判定された場合にも使用する。
-  コミット作成は`/git-commit`の役割なので、このスキルはPR作成に限定する。
-argument-hint: "[補足 例: base ブランチ指定・draft PR 指示 など。省略可]"
-allowed-tools:
-  - Read(*)
-  - Glob(*)
-  - Grep(*)
-  - Bash(gh:*)
-  - Bash(git:*)
-  - Bash(cat:*)
-  - Bash(ls:*)
-  - Bash(rm:*)
+    GitHub Pull Request を作成する。現在のブランチ差分・コミット履歴・関連Issue・既存PRパターンから、タイトルと本文（変更概要・動作確認エビデンス・Test Plan・Issue 紐付け・レビュー重点確認ポイント）を生成し、`gh pr create` で即起票する。確認ゲートは置かず仮決め即実行。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
+    トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」「変更をPRにまとめて」「作業をPRにして」「PR化して」「共有準備」「リモートに出して」「レビュー依頼して」、または dev-orchestration の Phase 6 で PR 作成が必要と判定された場合。
+name: create-pr
 ---
-
 # 新規PR作成
 
 ## ユーザー入力

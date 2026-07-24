@@ -1,7 +1,7 @@
 ---
 name: cursor-code
 description: |
-  コーディング・実装タスクをCursor Agent CLI（composer-2-fast）に委譲するスキル。
+  コーディング・実装タスクをCursor Agent CLI（composer-2.5-fast）に委譲するスキル。
   ファイル作成、コード編集、バグ修正、リファクタリングなどの書き込み操作をCursorが実行し、
   結果をClaudeが検証・サマリーして提示する。
   「実装して」「コーディングして」「書いて」「作って」「追加して」「修正して」「直して」
@@ -36,7 +36,7 @@ $ARGUMENTS
 
 ## 目的
 
-コーディング・実装タスクをCursor Agent CLI（composer-2-fast）に委譲し、その結果をClaude自身が検証・サマリーして提示する。
+コーディング・実装タスクをCursor Agent CLI（composer-2.5-fast）に委譲し、その結果をClaude自身が検証・サマリーして提示する。
 
 Cursorは「実装エンジン」、Claudeは「品質保証とオーケストレーター」として機能する。Claudeは自分でファイルを書かない。コンテキスト収集、プロンプト構成、結果検証に専念する。
 
@@ -153,13 +153,13 @@ git status --porcelain
 ### 3-3. 実行
 
 ```bash
-agent -p --trust --force --model composer-2-fast --output-format json "<composed prompt>"
+agent -p --trust --force --model composer-2.5-fast --output-format json "<composed prompt>"
 ```
 
 プロンプトをtmpfileに書き出した場合:
 
 ```bash
-agent -p --trust --force --model composer-2-fast --output-format json "$(cat "$PROMPT_FILE")"
+agent -p --trust --force --model composer-2.5-fast --output-format json "$(cat "$PROMPT_FILE")"
 rm -f "$PROMPT_FILE"
 ```
 

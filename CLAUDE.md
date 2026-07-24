@@ -4,45 +4,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## リポジトリ概要
 
-AIコーディングアシスタント（Claude Code、Cursor）のカスタム設定（agents、skills）を一元管理し、[dotter](https://github.com/SuperCuber/dotter) で各ツールのホームディレクトリにシンボリックリンクとしてデプロイするdotfilesリポジトリ。
+AIコーディングアシスタント（Claude Code、Cursor、Codex CLI）のカスタム設定（指示・agents・skills）を一元管理し、`scripts/deploy.sh` で各ツールのホームディレクトリにシンボリックリンクとしてデプロイするdotfilesリポジトリ。外部依存は bash のみ。
 
 ## アーキテクチャ
 
 ```
-shared/          ← agents・skillsの実体（Claude/Cursor共通）
-  agents/        ← PRレビュー用 3 体（meta/pdm/techlead-reviewer）+ 合議用 + スペシャリスト 12 体
+shared/          ← 実体（3ツール共通の正本）
+  instructions.md ← グローバル指示（CLAUDE.md / AGENTS.md の正本）
+  agents/        ← PRレビュー用 3 体 + 合議用 + スペシャリスト 12 体（Claude/Cursorのみ）
   skills/        ← スラッシュコマンドで呼び出すスキル群
   rules/         ← 共通ルール（`review-badges.md`: レビューコメント用バッジ定義の正典）
-claude/          ← Claude Code用設定
-  CLAUDE.md      ← グローバルCLAUDE.md（~/.claude/ に配置される）
+claude/          ← Claude Code用のツール固有ファイル
+  CLAUDE.md -> ../shared/instructions.md
   agents -> ../shared/agents
   skills -> ../shared/skills
-cursor/          ← Cursor用設定
+  settings.json / statusline.sh
+cursor/          ← Cursor用（repo内参照用symlink）
   agents -> ../shared/agents
   skills -> ../shared/skills
-.dotter/         ← dotterの設定ファイル
+  rules/AGENTS.md -> ../../shared/instructions.md
+codex/           ← Codex用（repo内参照用symlink）
+  AGENTS.md -> ../shared/instructions.md
+scripts/
+  deploy.sh / undeploy.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`claude/` と `cursor/` からシンボリックリンクで参照することで、ツール間で設定を共有している。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。
 
 ## デプロイ
 
 ```bash
-dotter deploy    # シンボリックリンクを作成・更新
-dotter undeploy  # シンボリックリンクを削除
+./scripts/deploy.sh     # シンボリックリンクを作成・更新（idempotent）
+./scripts/undeploy.sh   # aimod 由来のシンボリックリンクだけ削除
 ```
 
-デプロイ先は `.dotter/global.toml` で定義:
-- `claude/agents` → `~/.claude/agents`
-- `claude/skills` → `~/.claude/skills`
-- `cursor/agents` → `~/.cursor/agents`
-- `cursor/skills` → `~/.cursor/skills`
+デプロイ先:
+
+- `shared/instructions.md` → `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.cursor/rules/AGENTS.md`
+- `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
+- `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
+- `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
+- `claude/settings.json` → `~/.claude/settings.json`
+- `claude/statusline.sh` → `~/.claude/statusline.sh`
+
+管理しない: `~/.codex/config.toml`, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`
 
 ## スキル・エージェントの追加
 
-- **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成（フロントマター付きMarkdown）
-- **エージェント追加**: `shared/agents/<agent-name>.md` を作成（フロントマター付きMarkdown）
+- **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
+- **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude/Cursor のみ）→ `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
+
+### gh skill との関係
+
+- 探索: `gh skill search` / `preview` は可
+- **禁止**: `gh skill install --scope user`（実体コピーで aimod の symlink を壊す）
+- 取り込み: 外部スキルは `shared/skills/` にコピーして aimod 正本化し、競合時は新しい方を採用してから `./scripts/deploy.sh`
 
 ## レビュー用エージェント
 
@@ -107,5 +124,5 @@ dotter undeploy  # シンボリックリンクを削除
 
 ## 注意事項
 
-- `claude/CLAUDE.md` はグローバル設定（`~/.claude/CLAUDE.md`）としてデプロイされるため、変更の影響範囲が広い
-- `shared/` 配下の変更は Claude Code と Cursor の両方に影響する
+- `shared/instructions.md` はグローバル設定（`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` / `~/.cursor/rules/AGENTS.md`）としてデプロイされるため、変更の影響範囲が広い
+- `shared/` 配下の変更は Claude Code・Cursor・Codex のすべてに影響する（agents は Claude/Cursor のみ）

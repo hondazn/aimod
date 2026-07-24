@@ -1,27 +1,11 @@
 ---
-name: create-issue
+allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git log:*) Bash(git diff:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
+argument-hint: '[タスク概要 または省略 (コンテキストから推論)]'
 description: |
-  新規GitHub Issueを起票する。タスクの内容から種別（feat/fix/docs/refactor/chore/perf/test/ci）を仮分類し、
-  リポジトリ既存のIssueテンプレート・命名規則・ラベル運用に合わせてタイトルと本文を生成し、`gh issue create`で即起票する。
-  確認ゲートは置かず、仮決め即実行を基本とする。情報不足でも仮のタイトル・本文で起票してから`/refine-issue`を提案する。
-  トリガー: 「Issueを作って」「Issueを起票して」「〜のバグを記録して」「〜の機能要望を登録して」
-  「チケットを切って」「この件でIssue立てて」「タスクとしてIssue化して」「Issueにまとめて」。
-  明示的に「Issue」という語を含まなくても、タスク・バグ・要望の記録依頼や、dev-orchestrationのPhase 2-2で
-  新規起票が必要と判定された場合にも使用する。既存Issueの精緻化は`/refine-issue`の役割なので、
-  このスキルは新規起票に限定する。
-argument-hint: "[タスク概要 または省略 (コンテキストから推論)]"
-allowed-tools:
-  - Read(*)
-  - Glob(*)
-  - Grep(*)
-  - Bash(gh:*)
-  - Bash(git log:*)
-  - Bash(git diff:*)
-  - Bash(cat:*)
-  - Bash(ls:*)
-  - Bash(rm:*)
+    新規 GitHub Issue を起票する。タスク内容から種別（feat/fix/docs/refactor/chore/perf/test/ci）を仮分類し、リポジトリ既存の Issue テンプレート・命名規則・ラベル運用に合わせてタイトルと本文を生成し、`gh issue create` で即起票する。確認ゲートは置かず仮決め即実行。情報不足でも仮のタイトル・本文で起票してから `/refine-issue` を提案する。
+    トリガー: 「Issueを作って」「Issueを起票して」「〜のバグを記録して」「〜の機能要望を登録して」「チケットを切って」「この件でIssue立てて」「タスクとしてIssue化して」「Issueにまとめて」。タスク・バグ・要望の記録依頼や、dev-orchestration の Phase 2-2 で新規起票が必要と判定された場合にも使用する。
+name: create-issue
 ---
-
 # 新規Issue起票
 
 ## ユーザー入力
