@@ -38,14 +38,19 @@ Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`
 
 **Cursor には instructions も rules も配らない。** Cursor にユーザーレベルの rules（User Rules）は**存在するが、UI 管理**（Customize → Rules）で Cursor 側の環境に保存され、symlink できるファイルパスを持たないため。`~/.cursor/rules` は Cursor のどの配置先でもない。
 
-ファイルとして書けるのは次の 2 つで、どちらもリポジトリ単位のため dotfiles リポジトリからは配れない:
+ファイルとして書ける経路は 3 つある:
 
-| 形式 | 場所 | 制約 |
-|---|---|---|
-| Project Rules | `.cursor/rules/*.mdc` | `.mdc` 必須。`description` / `globs` / `alwaysApply` の frontmatter が要る。**frontmatter の無い `.md` は無視される** |
-| `AGENTS.md` | プロジェクト直下（サブディレクトリにネスト可） | frontmatter 不要 |
+| 形式 | 場所 | スコープ | 制約 |
+|---|---|---|---|
+| Project Rules | `.cursor/rules/*.mdc` | リポジトリ単位 | `.mdc` 必須。`description` / `globs` / `alwaysApply` の frontmatter が要る。**frontmatter の無い `.md` は無視される** |
+| `AGENTS.md` | プロジェクト直下（ネスト可）| リポジトリ単位 | frontmatter 不要 |
+| **プラグイン** | `~/.cursor/plugins/local/<name>` | **ユーザー単位** | `.cursor-plugin/plugin.json` + `rules/*.mdc` / `skills/<name>/SKILL.md`。**symlink でのインストールが公式手順** |
 
-したがって Cursor が aimod から受け取るのは **agents と skills のみ**。Cursor でグローバル指示を効かせたい場合は、UI の User Rules に貼るか、リポジトリ単位で `.cursor/rules/*.mdc` / `AGENTS.md` を置くか、内容をスキル化する。出典: <https://cursor.com/docs/context/rules>（ユーザーレベルの skills / agents / commands / hooks の配置先は Cursor 同梱の `~/.cursor/skills-cursor/create-skill` `create-subagent` 等を参照）。
+前 2 つはリポジトリ単位なので dotfiles リポジトリからは配れないが、**プラグインは配れる**。`ln -s <repo>/<plugin-dir> ~/.cursor/plugins/local/aimod` は aimod の symlink モデルとそのまま噛み合う。
+
+現状 aimod はこの経路を使っておらず、Cursor が受け取るのは **agents と skills のみ**。プラグイン化は未実装で、`rules/*.mdc` に frontmatter が要る（= `shared/rules/*.md` をそのままリンクできない）点の設計判断が残っている。
+
+出典: <https://cursor.com/docs/context/rules> / <https://cursor.com/docs/plugins>（ユーザーレベルの skills / agents の配置先は Cursor 同梱の `~/.cursor/skills-cursor/create-skill` `create-subagent` も参照）。
 
 実測（2026-07-25 / `cursor-agent` v2026.07.23-e383d2b / `gpt-5.4-mini-medium`）:
 

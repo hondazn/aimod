@@ -153,13 +153,13 @@ done
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
 
-# Cursor gets no rules. Its user-level rules exist but live in the UI (Customize →
-# Rules), not on a path we can symlink; ~/.cursor/rules is not a Cursor location at
-# all. File-based rules are per-repo: .cursor/rules/*.mdc (frontmatter required, a
-# plain .md is ignored) or a project-root AGENTS.md. A probe of the loaded context
-# confirmed nothing under ~/.cursor/rules reaches cursor-agent. Drop the links older
-# versions of this script created; foreign files fail is_ours and stay.
-# See https://cursor.com/docs/context/rules
+# Cursor gets no rules yet. Its User Rules live in the UI, not on a symlinkable path,
+# and ~/.cursor/rules is not a Cursor location at all — a probe of the loaded context
+# confirmed nothing there reaches cursor-agent. Drop the links older versions of this
+# script created; foreign files fail is_ours and stay.
+# A user-level file route does exist: a plugin symlinked into ~/.cursor/plugins/local
+# can ship rules/*.mdc. Unimplemented — those need frontmatter, so shared/rules/*.md
+# cannot be linked as-is. See CLAUDE.md and https://cursor.com/docs/plugins
 for entry in "$HOME/.cursor/rules"/*.md; do
   if is_ours "$entry"; then
     rm -f "$entry"
