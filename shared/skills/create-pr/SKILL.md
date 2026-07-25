@@ -3,7 +3,7 @@ allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(cat:*) Bash(l
 argument-hint: '[補足 例: base ブランチ指定・draft PR 指示 など。省略可]'
 description: |
     GitHub Pull Request を作成する。現在のブランチ差分・コミット履歴・関連Issue・既存PRパターンから、タイトルと本文（変更概要・動作確認エビデンス・Test Plan・Issue 紐付け・レビュー重点確認ポイント）を生成し、`gh pr create` で即起票する。確認ゲートは置かず仮決め即実行。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
-    トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」「変更をPRにまとめて」「作業をPRにして」「PR化して」「共有準備」「リモートに出して」「レビュー依頼して」、または dev-orchestration の Phase 6 で PR 作成が必要と判定された場合。
+    トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」「変更をPRにまとめて」「作業をPRにして」「PR化して」「共有準備」「リモートに出して」「レビュー依頼して」。
 name: create-pr
 ---
 # 新規PR作成
@@ -23,7 +23,7 @@ $ARGUMENTS
 
 このスキルが存在する理由:
 
-- dev-orchestration の Phase 6 から呼ばれる「統合チェックポイント」としての役割
+- 実装完了からレビュー依頼までの「統合チェックポイント」としての役割
 - 「PR を作って」の独立トリガーからも同品質で起票できる再利用性
 - タイトル・本文・Test Plan・Issue 紐付け・レビュー重点ポイントのノウハウを一箇所に集約
 
@@ -392,7 +392,7 @@ Closes #12
 
 状態: ready（80 行程度の軽微な修正）
 
-### 例2: dev-orchestration 経由の feat PR（draft）
+### 例2: 実装途中の feat PR（draft）
 
 **前提:**
 
@@ -456,7 +456,6 @@ Closes #8
 |------|------|-------------------|
 | `/git-commit` | ローカルコミット | 前提として呼ばれる。このスキルはコミット作成しない |
 | `/create-issue` | 新規 Issue 起票 | 対になる入口。Issue と PR で責務分担 |
-| `dev-orchestration` | ワークフロー判断ハブ | Phase 6 からこのスキルを呼ぶ |
 | `codex:rescue` | 差分レビュー | PR 作成**前**に呼ぶ想定。このスキルは事前レビュー済み前提で起票 |
 | `pr-review` | 起票後の PR レビュー | このスキルで起票した PR を pr-review でチェックする流れ |
 
