@@ -13,7 +13,7 @@ shared/          ← 実体（3ツール共通の正本）
   instructions.md ← グローバル指示（CLAUDE.md / AGENTS.md の正本）。汎用ルールのみ
   agents/        ← PRレビュー用 2 体 + スペシャリスト 12 体（Claude/Cursorのみ）
   skills/        ← スラッシュコマンドで呼び出すスキル群
-  rules/         ← タスク別ルール（`coding.md`: コード変更時に適用）。Claude / Codex 用
+  rules/         ← タスク別ルール（`coding.md`: コード変更時に適用）。3ツール共通
 claude/          ← Claude Code用のツール固有ファイル
   CLAUDE.md -> ../shared/instructions.md
   agents -> ../shared/agents
@@ -28,29 +28,30 @@ scripts/
   deploy.sh / undeploy.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor には instructions も rules も**現状は配っていない**（`~/.cursor/rules` が Cursor の配置先ではないため。ユーザー単位の配布経路はプラグインとして存在するが未実装 — 後述）。いま Cursor が受け取るのは agents と skills だけ。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。
 
 `claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `codex/` に skills / rules のミラーは無い）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすと追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
 
-**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は次々段落のとおり、現状この経路に乗っていない）。
+**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が **Cursor / Codex 側の入口**を兼ねる（どちらも rules を自動ロードしないので、表を見て自分でファイルを開く）。
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
-**Cursor には instructions も rules も現状は配っていない。** `~/.cursor/rules` が Cursor のどの配置先でもないため、そこへのリンクをやめた。Cursor のユーザーレベル rules（User Rules）自体は**存在する**が、UI 管理（Customize → Rules）で Cursor 側の環境に保存され、symlink できるファイルパスを持たない。
+**Cursor へのグローバル指示は `~/AGENTS.md` 経由で配る。** Cursor はワークスペースから上へ辿って `AGENTS.md` を拾い、`~` はすべてのリポジトリの祖先なので、ここに置けば全プロジェクトに効く。rules 自体は自動ロードされないため、`~/.cursor/rules` は **`AGENTS.md` の「タスク別ルール」表から参照される置き場**として使う（エージェントが必要なときに開く）。
 
-ファイルとして書ける経路は 3 つある:
+実測（2026-07-25 / `cursor-agent` v2026.07.23-e383d2b）。**ファイルに「返答の先頭に特定の文字列を書け」と指示し、出力に現れるかで判定**した（自己申告の照会は偽陽性が出たため採用しない）:
 
-| 形式 | 場所 | スコープ | 制約 |
-|---|---|---|---|
-| Project Rules | `.cursor/rules/*.mdc` | リポジトリ単位 | `.mdc` 必須。`description` / `globs` / `alwaysApply` の frontmatter が要る。**frontmatter の無い `.md` は無視される** |
-| `AGENTS.md` | プロジェクト直下（ネスト可）| リポジトリ単位 | frontmatter 不要 |
-| **プラグイン** | `~/.cursor/plugins/local/<name>` | **ユーザー単位** | `.cursor-plugin/plugin.json` + `rules/*.mdc` / `skills/<name>/SKILL.md`。**symlink でのインストールが公式手順** |
+| 配置先 | cursor-agent | 備考 |
+|---|---|---|
+| **`~/AGENTS.md`** | **届く** | 指示に従った。これが唯一機能する経路 |
+| `~/.cursor/AGENTS.md` | 届かない | ワークスペースの祖先ではないため拾われない |
+| `~/.cursor/rules/*` | 届かない | 自動ロードなし。参照される置き場としてのみ使う |
+| `~/.cursor/skills`, `~/.cursor/agents` | 届く | Cursor が文書化しているユーザーレベル配置先 |
 
-前 2 つはリポジトリ単位なので dotfiles リポジトリからは配れないが、**プラグインは配れる**。`ln -s <repo>/<plugin-dir> ~/.cursor/plugins/local/aimod` は aimod の symlink モデルとそのまま噛み合う。
+`~/AGENTS.md` は **Claude Code と Codex では読まれない**（同じ方法で確認。どちらも指示に従わなかった）。したがって `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` との二重ロードは起きない。
 
-現状 aimod はこの経路を使っておらず、Cursor が受け取るのは **agents と skills のみ**。プラグイン化は未実装で、`rules/*.mdc` に frontmatter が要る（= `shared/rules/*.md` をそのままリンクできない）点の設計判断が残っている。
+Cursor 本来の rules 機構は別にあり、いずれも今回は使っていない: User Rules は UI 管理（Customize → Rules）で symlink できず、Project Rules（`.cursor/rules/*.mdc`、frontmatter 必須、**frontmatter の無い `.md` は無視**）とプロジェクト直下の `AGENTS.md` はリポジトリ単位。プラグイン（`~/.cursor/plugins/local/<name>` に symlink、`rules/*.mdc` 同梱）はユーザー単位で配れるが、`.mdc` の frontmatter が要り `shared/rules/*.md` をそのままリンクできないため採らなかった。
 
-出典: <https://cursor.com/docs/context/rules> / <https://cursor.com/docs/plugins>（ユーザーレベルの skills / agents の配置先は Cursor 同梱の `~/.cursor/skills-cursor/create-skill` `create-subagent` も参照）。
+出典: <https://cursor.com/docs/context/rules> / <https://cursor.com/docs/plugins>。バージョン更新時は上表を再測定すること。
 
 実測（2026-07-25 / `cursor-agent` v2026.07.23-e383d2b / `gpt-5.4-mini-medium`）:
 
@@ -72,13 +73,15 @@ Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`
 
 デプロイ先:
 
-- `shared/instructions.md` → `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`（Cursor は現状デプロイ対象外）
+- `shared/instructions.md` → `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/AGENTS.md`（最後が Cursor 用。ホーム直下はユーザー自身のファイルが置かれうるので、`link_rule_path` を通して**既存の実体があれば SKIP** する）
 - `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
-- `shared/rules` → `~/.claude/rules`, `~/.codex/rules`（`~/.claude/rules` は Claude Code が自動ロードする置き場、`~/.codex/rules` は Codex が rules を自動ロードしないため aimod 側の慣習置き場。どちらも aimod 由来でない実体・外部ツール管理の symlink は破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
+- `shared/rules` → `~/.claude/rules`, `~/.cursor/rules`, `~/.codex/rules`（自動ロードされるのは `~/.claude/rules` のみ。残り 2 つは「タスク別ルール」表から参照される置き場。いずれも aimod 由来でない実体・外部ツール管理の symlink は破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
 
-2 つの rules 配置先はどちらも `link_rule_path` を通す。他ツールやユーザー自身のルールと共有しうるため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。
+rules 配置先と `~/AGENTS.md` はすべて `link_rule_path` を通す。他ツールやユーザー自身のファイルと共有しうるため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。
+
+過去バージョンは `~/.cursor/rules` の中に `AGENTS.md` と各ルールを**ファイル単位**でリンクしていた。その残骸があるとディレクトリ丸ごとのリンクが永久に SKIP されるため、`deploy.sh` は先に aimod 由来のファイルリンクだけを外してから張り直す（`migrate: drop per-file link` としてログに出る）。
 
 `~/.cursor/rules` については、**過去バージョンが張った aimod 由来のリンクを `deploy.sh` が削除する**（`is_ours` 判定を通すので他ツールやユーザー自身のファイルは残る）。空になればディレクトリごと畳む。
 
@@ -94,7 +97,7 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 
 - **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude/Cursor のみ）→ `./scripts/deploy.sh`
-- **ルール追加**: `shared/rules/<task>.md` を作成 → `instructions.md` の「タスク別ルール」表に1行追加 → `./scripts/deploy.sh`（現状は Claude / Codex にのみ配られる）
+- **ルール追加**: `shared/rules/<task>.md` を作成 → `instructions.md` の「タスク別ルール」表に1行追加 → `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
 
 `shared/rules/` に置いたファイルは Claude Code で**毎セッション全文がロードされる**。特定スキルからしか参照しない長大な参照表は rules ではなく、そのスキルの補助ファイルとして `shared/skills/<skill>/` に置くこと（例: `pr-review/REVIEW-BADGES.md`）。
@@ -168,4 +171,4 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 ## 注意事項
 
 - `shared/instructions.md` はグローバル設定（`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`）としてデプロイされるため、変更の影響範囲が広い
-- `shared/` 配下の変更は各ツールの配置先に反映される。ただしツールごとに受け取る範囲が違う: Claude Code は全部、Codex は instructions / skills / rules、**Cursor は agents と skills のみ**（「instructions.md と rules/ の切り分け」節を参照）
+- `shared/` 配下の変更は Claude Code・Cursor・Codex のすべてに影響する（agents は Claude / Cursor のみ）。ただし届き方は違い、rules を自動ロードするのは Claude Code だけ。Cursor / Codex は `AGENTS.md` の「タスク別ルール」表を見て自分で開く

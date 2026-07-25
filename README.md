@@ -6,7 +6,7 @@ Claude Code・Cursor・Codex CLI の指示・agents・skills を一元管理し�
 
 ## 特徴
 
-- **3ツール共通の正本**: `shared/` を編集すれば 3 ツールに反映される。ただし受け取る範囲はツールごとに違う（「デプロイ先」節を参照）
+- **3ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex に同じ設定が届く（届き方の違いは「デプロイ先」節を参照）
 - **agents は Claude / Cursor 向け**: PR レビュー用 2 体 + スペシャリスト 12 体（`pr-review` で動的追加）
 - **skills は全ツールへ**: Codex は `~/.codex/skills/.system` と共存するようスキル単位でリンク
 - **gh skill と役割分担**: 探索は `gh skill`、配置の正本は aimod（user scope インストールは使わない）
@@ -32,7 +32,7 @@ shared/
   instructions.md   # グローバル指示の正本（CLAUDE.md / AGENTS.md）。汎用ルールのみ
   agents/           # Claude / Cursor 用
   skills/           # 3ツール共通
-  rules/            # タスク別ルール（coding.md）。Claude / Codex 用
+  rules/            # タスク別ルール（coding.md）。3ツール共通
 claude/             # settings.json など Claude 固有 + 参照用 symlink
 cursor/             # 参照用 symlink
 codex/              # 参照用 symlink
@@ -45,11 +45,11 @@ scripts/
 
 | 正本 | 配置先 |
 |---|---|
-| `shared/instructions.md` | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` |
+| `shared/instructions.md` | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/AGENTS.md`（Cursor 用）|
 | `shared/agents` | `~/.claude/agents`, `~/.cursor/agents` |
 | `shared/skills` | `~/.claude/skills`, `~/.cursor/skills` |
 | `shared/skills/<name>` | `~/.codex/skills/<name>` |
-| `shared/rules` | `~/.claude/rules`, `~/.codex/rules` |
+| `shared/rules` | `~/.claude/rules`, `~/.cursor/rules`, `~/.codex/rules` |
 | `claude/settings.json` | `~/.claude/settings.json` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 
@@ -57,7 +57,9 @@ rules の配置先はどちらも他ツールやユーザー自身のルール�
 
 上の表は `deploy.sh` が作る**配置先**であって、各ツールがそれを読み込むかは別問題。自動ロードが確認できているのは `~/.claude/rules` のみで、Codex 向けは `~/.codex/AGENTS.md` 末尾の「タスク別ルール」表を入口に、エージェントが必要なときだけ該当ファイルを読む前提で置いている。
 
-**Cursor は現状 agents と skills だけを受け取る。** Cursor の User Rules は UI 管理（Customize → Rules）で symlink できず、`~/.cursor/rules` は Cursor の配置先ではないため。ユーザー単位でファイル配布したい場合は **Cursor プラグイン**（`~/.cursor/plugins/local/<name>` に symlink、`rules/*.mdc` を同梱）が使えるが、**未実装**。根拠と残課題は [`CLAUDE.md`](CLAUDE.md) を参照。
+rules を自動ロードするのは `~/.claude/rules` だけ。Cursor / Codex は `AGENTS.md` 末尾の「タスク別ルール」表を入口に、該当する作業のときだけ該当ファイルを開く。
+
+Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワークスペースから上へ辿って `AGENTS.md` を拾い、`~` が全リポジトリの祖先になるため。`~/.cursor/` 配下に置いても拾われないことを実測済み。この経路は Claude / Codex では読まれないので二重ロードにはならない。根拠は [`CLAUDE.md`](CLAUDE.md) を参照。
 
 `shared/` からスキルを消した場合、`~/.codex/skills/<name>` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。過去バージョンが `~/.cursor/rules/` に張ったリンクも同様に除去される。
 

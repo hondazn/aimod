@@ -113,7 +113,7 @@ link_rule_path() {
     return 0
   fi
   if [[ -e "$dest" ]]; then
-    log "SKIP $dest (existing non-aimod rules) — move into shared/rules, then re-run"
+    log "SKIP $dest (existing file not managed by aimod) — move it into shared/, then re-run"
     return 1
   fi
   ln -sfn "$src" "$dest"
@@ -122,10 +122,15 @@ link_rule_path() {
 
 log "deploying from $ROOT"
 
-# Shared instructions. Cursor is absent on purpose: its global guidance lives in the
-# UI (User Rules), not on a path we can symlink. See the rules block below.
+# Shared instructions
 link "$ROOT/shared/instructions.md" "$HOME/.claude/CLAUDE.md"
 link "$ROOT/shared/instructions.md" "$HOME/.codex/AGENTS.md"
+# Cursor reaches this by walking up from the workspace for AGENTS.md, and ~ is an
+# ancestor of every repo. Measured behaviourally (an instruction placed here changes
+# cursor-agent's output; ~/.cursor/AGENTS.md and ~/.cursor/rules do not, and neither
+# Claude Code nor Codex pick it up, so nothing is loaded twice). Guarded rather than
+# replaced: a hand-written ~/AGENTS.md is the user's, not ours.
+link_rule_path "$ROOT/shared/instructions.md" "$HOME/AGENTS.md" || true
 
 # Agents (Claude / Cursor only)
 link "$ROOT/shared/agents" "$HOME/.claude/agents"
@@ -153,20 +158,18 @@ done
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
 
-# Cursor gets no rules yet. Its User Rules live in the UI, not on a symlinkable path,
-# and ~/.cursor/rules is not a Cursor location at all — a probe of the loaded context
-# confirmed nothing there reaches cursor-agent. Drop the links older versions of this
-# script created; foreign files fail is_ours and stay.
-# A user-level file route does exist: a plugin symlinked into ~/.cursor/plugins/local
-# can ship rules/*.mdc. Unimplemented — those need frontmatter, so shared/rules/*.md
-# cannot be linked as-is. See CLAUDE.md and https://cursor.com/docs/plugins
+# Cursor: none of these three dirs is auto-loaded, so ~/.cursor/rules is purely a
+# storage spot the agent opens on demand via the task-rules table in AGENTS.md.
+# Migrate first: older versions linked AGENTS.md and each rule file individually in
+# here, and those leftovers would make the whole-dir link below SKIP forever.
 for entry in "$HOME/.cursor/rules"/*.md; do
   if is_ours "$entry"; then
     rm -f "$entry"
-    log "remove $entry (not a Cursor location)"
+    log "migrate: drop per-file link $entry"
   fi
 done
 rmdir "$HOME/.cursor/rules" 2>/dev/null || true
+link_rule_path "$ROOT/shared/rules" "$HOME/.cursor/rules" || true
 
 # Claude-only files
 link "$ROOT/claude/settings.json" "$HOME/.claude/settings.json"
