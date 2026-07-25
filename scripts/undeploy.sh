@@ -37,7 +37,7 @@ unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 
 # Legacy: older versions linked instructions and rules into ~/.cursor/rules before we
-# established Cursor has no user-level rules. deploy.sh drops them too, but undeploy
+# established that it is not a Cursor location. deploy.sh drops them too, but undeploy
 # must still clean machines that never re-ran deploy.
 shopt -s nullglob
 unlink_if_ours "$HOME/.cursor/rules/AGENTS.md"

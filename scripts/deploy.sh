@@ -122,8 +122,8 @@ link_rule_path() {
 
 log "deploying from $ROOT"
 
-# Shared instructions. Cursor is absent on purpose: it has no user-level rules or
-# instructions file, so there is nowhere to put these. See the rules block below.
+# Shared instructions. Cursor is absent on purpose: its global guidance lives in the
+# UI (User Rules), not on a path we can symlink. See the rules block below.
 link "$ROOT/shared/instructions.md" "$HOME/.claude/CLAUDE.md"
 link "$ROOT/shared/instructions.md" "$HOME/.codex/AGENTS.md"
 
@@ -163,7 +163,7 @@ link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
 for entry in "$HOME/.cursor/rules"/*.md; do
   if is_ours "$entry"; then
     rm -f "$entry"
-    log "remove $entry (Cursor has no user-level rules)"
+    log "remove $entry (not a Cursor location)"
   fi
 done
 rmdir "$HOME/.cursor/rules" 2>/dev/null || true
