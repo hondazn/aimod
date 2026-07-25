@@ -22,3 +22,5 @@ TDD で開発する（探索 → Red → Green → Refactoring）。
 - テストには What
 - コミットメッセージには Why
 - コードコメントには Why not
+
+これ以外は書かない
