@@ -340,7 +340,6 @@ cleanup-stale-worktrees --apply
 |------|------|------|
 | `superpowers:using-git-worktrees` | worktree 作成 | 対になる入口（作成・整備） |
 | `superpowers:finishing-a-development-branch` | PR マージ後の片付け | 個別ブランチの finish 後の一括掃除担当 |
-| `dev-orchestration` | ワークフロー判断ハブ | Phase 6 完走後、定期的にこのスキルを回す運用が想定される |
 
 ## レッドフラグ
 
