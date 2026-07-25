@@ -28,15 +28,15 @@ scripts/
   deploy.sh / undeploy.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor には instructions も rules も配らない（次節のとおり受け皿が無い）。Cursor が受け取るのは agents と skills だけ。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor には instructions も rules も**現状は配っていない**（`~/.cursor/rules` が Cursor の配置先ではないため。ユーザー単位の配布経路はプラグインとして存在するが未実装 — 後述）。いま Cursor が受け取るのは agents と skills だけ。
 
 `claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `codex/` に skills / rules のミラーは無い）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすと追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
 
-**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は次々段落のとおり対象外）。
+**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は次々段落のとおり、現状この経路に乗っていない）。
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
-**Cursor には instructions も rules も配らない。** Cursor にユーザーレベルの rules（User Rules）は**存在するが、UI 管理**（Customize → Rules）で Cursor 側の環境に保存され、symlink できるファイルパスを持たないため。`~/.cursor/rules` は Cursor のどの配置先でもない。
+**Cursor には instructions も rules も現状は配っていない。** `~/.cursor/rules` が Cursor のどの配置先でもないため、そこへのリンクをやめた。Cursor のユーザーレベル rules（User Rules）自体は**存在する**が、UI 管理（Customize → Rules）で Cursor 側の環境に保存され、symlink できるファイルパスを持たない。
 
 ファイルとして書ける経路は 3 つある:
 
@@ -72,7 +72,7 @@ Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`
 
 デプロイ先:
 
-- `shared/instructions.md` → `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`（Cursor は受け皿が無いため対象外）
+- `shared/instructions.md` → `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`（Cursor は現状デプロイ対象外）
 - `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
@@ -94,7 +94,7 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 
 - **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude/Cursor のみ）→ `./scripts/deploy.sh`
-- **ルール追加**: `shared/rules/<task>.md` を作成 → `instructions.md` の「タスク別ルール」表に1行追加 → `./scripts/deploy.sh`（Claude / Codex のみ。Cursor には配られない）
+- **ルール追加**: `shared/rules/<task>.md` を作成 → `instructions.md` の「タスク別ルール」表に1行追加 → `./scripts/deploy.sh`（現状は Claude / Codex にのみ配られる）
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
 
 `shared/rules/` に置いたファイルは Claude Code で**毎セッション全文がロードされる**。特定スキルからしか参照しない長大な参照表は rules ではなく、そのスキルの補助ファイルとして `shared/skills/<skill>/` に置くこと（例: `pr-review/REVIEW-BADGES.md`）。
