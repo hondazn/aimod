@@ -37,6 +37,8 @@ scripts/
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
+一方 `cursor-agent` は **`~/.cursor/rules/` を読み込まない**（`cursor-agent -p` でロード済みコンテキストを照会して実測、2026-07-25 / v2026.07.23-e383d2b）。ワークスペース直下の `CLAUDE.md` は読むが、`~/.cursor/rules/AGENTS.md` も `coding.md` も届かない。つまり Cursor 向けの配置先は現状 **置いてあるだけで自動では効かない**。Cursor CLI に確実に届けたい内容はリポジトリ直下のコンテキストファイルに置くこと。IDE 側の挙動は未確認。
+
 ## デプロイ
 
 ```bash
