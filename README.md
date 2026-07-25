@@ -49,17 +49,20 @@ scripts/
 | `shared/agents` | `~/.claude/agents`, `~/.cursor/agents` |
 | `shared/skills` | `~/.claude/skills`, `~/.cursor/skills` |
 | `shared/skills/<name>` | `~/.codex/skills/<name>` |
-| `shared/rules` | `~/.claude/rules`, `~/.cursor/rules`, `~/.codex/rules` |
+| `shared/rules` | `~/.claude/rules`, `~/.codex/rules` |
+| `shared/rules/<name>.md` | `~/.cursor/rules/<name>.md`（ファイル単位）|
 | `claude/settings.json` | `~/.claude/settings.json` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 
-3 つの rules 配置先と `~/AGENTS.md` は、他ツールやユーザー自身のファイルと共有しうるため、同名の実体・外部ツール管理の symlink があれば破壊せず SKIP する。取り込みたい場合は中身を `shared/` へ移してから再実行する。
+rules の配置先と `~/AGENTS.md` は、他ツールやユーザー自身のファイルと共有しうるため、同名の実体・外部ツール管理の symlink があれば破壊せず SKIP する。取り込みたい場合は中身を `shared/` へ移してから再実行する。
+
+`~/.cursor/rules` だけはディレクトリ丸ごとではなく**ファイル単位**でリンクする。ユーザー自身のファイルが 1 つでもあるとディレクトリ単位のリンクは SKIP され、aimod のルールが 1 つも届かなくなるため。ファイル単位なら共存でき、同名衝突のときもそのエントリだけ SKIP して他は配られる。
 
 上の表は `deploy.sh` が作る**配置先**であって、各ツールがそれを読み込むかは別問題。rules を自動ロードするのは `~/.claude/rules` だけで、Cursor / Codex は `AGENTS.md` 末尾の「タスク別ルール」表を入口に、該当する作業のときだけ該当ファイルを開く。
 
 Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワークスペースから上へ辿って `AGENTS.md` を拾い、`~` が全リポジトリの祖先になるため。`~/.cursor/` 配下に置いても拾われないことを実測済み。この経路は Claude / Codex では読まれないので二重ロードにはならない。根拠は [`CLAUDE.md`](CLAUDE.md) を参照。
 
-`shared/` からスキルを消した場合、`~/.codex/skills/<name>` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。過去バージョンが `~/.cursor/rules/` にファイル単位で張ったリンクは、ディレクトリ単位のリンクへ自動で移行される。
+`shared/` からスキルやルールを消した場合、`~/.codex/skills/<name>` と `~/.cursor/rules/<name>.md` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。
 
 管理しないもの: `~/.codex/config.toml`、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`
 

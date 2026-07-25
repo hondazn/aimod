@@ -77,11 +77,14 @@ Cursor 本来の rules 機構は別にあり、いずれも今回は使ってい
 - `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
-- `shared/rules` → `~/.claude/rules`, `~/.cursor/rules`, `~/.codex/rules`（自動ロードされるのは `~/.claude/rules` のみ。残り 2 つは「タスク別ルール」表から参照される置き場。いずれも aimod 由来でない実体・外部ツール管理の symlink は破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
+- `shared/rules` → `~/.claude/rules`, `~/.codex/rules`（自動ロードされるのは `~/.claude/rules` のみ。`~/.codex/rules` は「タスク別ルール」表から参照される置き場）
+- `shared/rules/<name>.md` → `~/.cursor/rules/<name>.md`（**ファイル単位**。理由は下記）
 
 rules 配置先と `~/AGENTS.md` はすべて `link_rule_path` を通す。他ツールやユーザー自身のファイルと共有しうるため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。
 
-過去バージョンは `~/.cursor/rules` の中に `AGENTS.md` と各ルールを**ファイル単位**でリンクしていた。その残骸があるとディレクトリ丸ごとのリンクが永久に SKIP されるため、`deploy.sh` は先に aimod 由来のファイルリンクだけを外してから張り直す（`migrate: drop per-file link` としてログに出る）。
+`~/.cursor/rules` だけディレクトリ単位にしないのは、**SKIP の粒度**が理由。ディレクトリ単位だとユーザー自身のファイルが 1 つあるだけで `link_rule_path` が SKIP し、aimod のルールが 1 つも届かない。ファイル単位なら共存でき、同名衝突が起きてもそのエントリだけ諦めれば済む。`~/.claude/rules` / `~/.codex/rules` をディレクトリ単位のままにしているのは、これらがそのツール専用でユーザーが別途ファイルを置く動機が薄いため（置かれていれば同じく SKIP される。その場合は中身を `shared/rules` へ移してから再実行）。
+
+移行のため `deploy.sh` は、過去バージョンが張った `~/.cursor/rules` のディレクトリ単位リンクと、旧 `~/.cursor/rules/AGENTS.md`（現 `~/AGENTS.md`）を外してから張り直す（`migrate:` としてログに出る）。ファイル単位なので、`shared/rules` から消したルールのリンクは `prune_stale_link` が除去する。
 
 `~/.cursor/rules` については、**過去バージョンが張った aimod 由来のリンクを `deploy.sh` が削除する**（`is_ours` 判定を通すので他ツールやユーザー自身のファイルは残る）。空になればディレクトリごと畳む。
 

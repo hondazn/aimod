@@ -38,9 +38,8 @@ unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 unlink_if_ours "$HOME/.cursor/rules"
 
-# Legacy: older versions linked instructions and each rule file individually inside
-# ~/.cursor/rules. deploy.sh migrates those away, but undeploy must still clean
-# machines that never re-ran deploy.
+# Cursor rules are linked per file so files the user keeps there stay untouched.
+# AGENTS.md is legacy: instructions.md used to live here before ~/AGENTS.md.
 shopt -s nullglob
 unlink_if_ours "$HOME/.cursor/rules/AGENTS.md"
 for rule in "$ROOT/shared/rules"/*.md; do

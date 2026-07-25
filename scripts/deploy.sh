@@ -158,18 +158,27 @@ done
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
 
-# Cursor: none of these three dirs is auto-loaded, so ~/.cursor/rules is purely a
-# storage spot the agent opens on demand via the task-rules table in AGENTS.md.
-# Migrate first: older versions linked AGENTS.md and each rule file individually in
-# here, and those leftovers would make the whole-dir link below SKIP forever.
-for entry in "$HOME/.cursor/rules"/*.md; do
-  if is_ours "$entry"; then
-    rm -f "$entry"
-    log "migrate: drop per-file link $entry"
-  fi
+# Cursor: ~/.cursor/rules is not auto-loaded either. It is the storage the agent opens
+# on demand via the task-rules table in AGENTS.md. Linked per file rather than as a
+# whole directory: taking the directory would deliver nothing the moment the user
+# keeps a file of their own there, because link_rule_path refuses to replace it.
+if is_ours "$HOME/.cursor/rules"; then
+  rm -f "$HOME/.cursor/rules"
+  log "migrate: drop whole-dir link $HOME/.cursor/rules"
+fi
+mkdir -p "$HOME/.cursor/rules"
+for rule in "$ROOT/shared/rules"/*.md; do
+  link_rule_path "$rule" "$HOME/.cursor/rules/$(basename "$rule")" || true
 done
-rmdir "$HOME/.cursor/rules" 2>/dev/null || true
-link_rule_path "$ROOT/shared/rules" "$HOME/.cursor/rules" || true
+# instructions.md used to be linked here as AGENTS.md; it lives at ~/AGENTS.md now.
+if is_ours "$HOME/.cursor/rules/AGENTS.md"; then
+  rm -f "$HOME/.cursor/rules/AGENTS.md"
+  log "migrate: drop $HOME/.cursor/rules/AGENTS.md (now ~/AGENTS.md)"
+fi
+# A rule removed from shared/rules leaves its per-file link dangling.
+for entry in "$HOME/.cursor/rules"/*.md; do
+  prune_stale_link "$entry"
+done
 
 # Claude-only files
 link "$ROOT/claude/settings.json" "$HOME/.claude/settings.json"
