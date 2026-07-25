@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(git add:*) Bash(git commit:*) Bash(git push:*) Bash(git stash:*) Bash(git restore:*)
+allowed-tools: Bash(git status:*) Bash(git diff:*) Bash(git log:*) Bash(git add:*) Bash(git commit:*) Bash(git push:*) Bash(git stash:*) Bash(git restore:*)
 description: gitの差分を分析し、リポジトリの既存コミット履歴のフォーマットに合わせたコミットメッセージを生成してコミットする。「コミットして」「変更をまとめて」「git commit」「差分をコミット」「変更を保存」などのリクエストで使用する。ステージング済み・未ステージングの変更を論理的な粒度で分割し、適切なコミットメッセージを自動生成する。
 name: git-commit
 ---
