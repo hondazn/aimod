@@ -91,14 +91,11 @@ link_codex_skill() {
   log "link $dest -> $src"
 }
 
-# Link a rules path without ever destroying rules we did not create. Only
+# Link a rules directory without ever destroying rules we did not create. Only
 # ~/.claude/rules is loaded natively by its tool; ~/.codex/rules is an aimod
 # convention that Codex reads on demand, since Codex has AGENTS.md alone with
-# no rule imports. Either way all three may already hold entries from outside
-# aimod, so anything not ours is left exactly as it is. Used for both the
-# whole-dir targets (~/.claude/rules, ~/.codex/rules) and the per-file ones
-# (~/.cursor/rules/<name>.md), where a generic name like coding.md can collide
-# with a rule the user already keeps there.
+# no rule imports. Both may already hold entries from outside aimod, so anything
+# not ours is left exactly as it is.
 link_rule_path() {
   local src="$1" dest="$2"
   if [[ -L "$dest" ]]; then
@@ -125,10 +122,10 @@ link_rule_path() {
 
 log "deploying from $ROOT"
 
-# Shared instructions
+# Shared instructions. Cursor is absent on purpose: it has no user-level rules or
+# instructions file, so there is nowhere to put these. See the rules block below.
 link "$ROOT/shared/instructions.md" "$HOME/.claude/CLAUDE.md"
 link "$ROOT/shared/instructions.md" "$HOME/.codex/AGENTS.md"
-link "$ROOT/shared/instructions.md" "$HOME/.cursor/rules/AGENTS.md"
 
 # Agents (Claude / Cursor only)
 link "$ROOT/shared/agents" "$HOME/.claude/agents"
@@ -152,21 +149,22 @@ for entry in "$HOME/.codex/skills"/*; do
 done
 
 # Rules — only ~/.claude/rules is loaded automatically. Codex reads them on demand
-# via the task-rules table in AGENTS.md. The Cursor copies are placed but did not
-# reach cursor-agent when measured; see CLAUDE.md before relying on them.
+# via the task-rules table in AGENTS.md.
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
-# We put AGENTS.md in ~/.cursor/rules ourselves (see above), so a whole-dir symlink
-# would clobber it — link rule files individually instead
-mkdir -p "$HOME/.cursor/rules"
-for rule in "$ROOT/shared/rules"/*.md; do
-  link_rule_path "$rule" "$HOME/.cursor/rules/$(basename "$rule")" || true
-done
-# Same for a rule removed from shared/rules. AGENTS.md still resolves, so it is
-# never a prune candidate.
+
+# Cursor gets no rules: it has no user-level rules mechanism at all. Its rules are
+# project-scoped .cursor/rules/*.mdc with required frontmatter (see Cursor's own
+# ~/.cursor/skills-cursor/create-rule), and a probe of the loaded context confirmed
+# nothing under ~/.cursor/rules reaches cursor-agent. Drop the links older versions
+# of this script created; foreign files fail is_ours and stay.
 for entry in "$HOME/.cursor/rules"/*.md; do
-  prune_stale_link "$entry"
+  if is_ours "$entry"; then
+    rm -f "$entry"
+    log "remove $entry (Cursor has no user-level rules)"
+  fi
 done
+rmdir "$HOME/.cursor/rules" 2>/dev/null || true
 
 # Claude-only files
 link "$ROOT/claude/settings.json" "$HOME/.claude/settings.json"

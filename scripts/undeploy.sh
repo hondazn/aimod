@@ -26,7 +26,6 @@ log "undeploying aimod links from $ROOT"
 
 unlink_if_ours "$HOME/.claude/CLAUDE.md"
 unlink_if_ours "$HOME/.codex/AGENTS.md"
-unlink_if_ours "$HOME/.cursor/rules/AGENTS.md"
 
 unlink_if_ours "$HOME/.claude/agents"
 unlink_if_ours "$HOME/.cursor/agents"
@@ -37,11 +36,15 @@ unlink_if_ours "$HOME/.cursor/skills"
 unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 
-# Cursor rules are linked per file so AGENTS.md and non-aimod files stay untouched
+# Legacy: older versions linked instructions and rules into ~/.cursor/rules before we
+# established Cursor has no user-level rules. deploy.sh drops them too, but undeploy
+# must still clean machines that never re-ran deploy.
 shopt -s nullglob
+unlink_if_ours "$HOME/.cursor/rules/AGENTS.md"
 for rule in "$ROOT/shared/rules"/*.md; do
   unlink_if_ours "$HOME/.cursor/rules/$(basename "$rule")"
 done
+rmdir "$HOME/.cursor/rules" 2>/dev/null || true
 
 unlink_if_ours "$HOME/.claude/settings.json"
 unlink_if_ours "$HOME/.claude/statusline.sh"
