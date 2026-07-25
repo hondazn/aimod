@@ -55,7 +55,7 @@ git status                      # 未コミット変更がないか
 
 | 状況 | 対応 |
 |------|------|
-| 現在が `main` / `master` / `trunk` | 中止。dev-orchestration の Phase 2-1 で worktree を切るべきだったと報告 |
+| 現在が `main` / `master` / `trunk` | 中止。作業ブランチ（または worktree）を切って変更を移してから再実行するよう報告する。worktree 運用は `superpowers:using-git-worktrees` を案内する |
 | 未コミット変更あり | 中止。`/git-commit` を先に呼ぶようユーザーに提案 |
 | main との差分コミット数が 0 | 中止。「差分がないため PR を作れません」と報告 |
 | リモートに push 未実施 | 無条件で `git push -u origin <branch>` を実行してから Phase 1-2 に進む（確認しない） |
