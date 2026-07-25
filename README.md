@@ -57,7 +57,7 @@ rules の配置先はどちらも他ツールやユーザー自身のルール�
 
 上の表は `deploy.sh` が作る**配置先**であって、各ツールがそれを読み込むかは別問題。自動ロードが確認できているのは `~/.claude/rules` のみで、Codex 向けは `~/.codex/AGENTS.md` 末尾の「タスク別ルール」表を入口に、エージェントが必要なときだけ該当ファイルを読む前提で置いている。
 
-**Cursor は agents と skills だけを受け取る。** Cursor にはユーザーレベルの rules 機構が無く（rules はプロジェクト単位の `.cursor/rules/*.mdc`）、instructions の受け皿も無いため。Cursor にグローバル指示を渡したい場合はリポジトリ単位で `.cursor/rules/*.mdc` を置くか、内容をスキル化する。根拠と実測は [`CLAUDE.md`](CLAUDE.md) を参照。
+**Cursor は agents と skills だけを受け取る。** Cursor のユーザーレベル rules（User Rules）は UI 管理（Customize → Rules）で symlink できるファイルパスを持たず、`~/.cursor/rules` は Cursor の配置先ではないため。ファイルで書けるのはリポジトリ単位の `.cursor/rules/*.mdc` か `AGENTS.md` だけ。Cursor でグローバル指示を効かせたい場合は UI の User Rules に貼るか、リポジトリ単位で置くか、内容をスキル化する。根拠と実測は [`CLAUDE.md`](CLAUDE.md) を参照。
 
 `shared/` からスキルを消した場合、`~/.codex/skills/<name>` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。過去バージョンが `~/.cursor/rules/` に張ったリンクも同様に除去される。
 

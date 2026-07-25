@@ -36,7 +36,16 @@ scripts/
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
-**Cursor には instructions も rules も配らない。** Cursor にユーザーレベルの rules 機構が無いため。Cursor の rules はプロジェクト単位の `.cursor/rules/*.mdc`（`description` / `globs` / `alwaysApply` の frontmatter が必要）で、ユーザーレベルで文書化されているのは skills / agents / commands / hooks だけ（一次情報は Cursor 同梱の `~/.cursor/skills-cursor/create-rule` `create-skill` `create-subagent` `migrate-to-skills`）。したがって Cursor が aimod から受け取るのは **agents と skills のみ**で、グローバル指示を渡したい場合はリポジトリ単位で `.cursor/rules/*.mdc` を置くか、内容をスキル化する。
+**Cursor には instructions も rules も配らない。** Cursor にユーザーレベルの rules（User Rules）は**存在するが、UI 管理**（Customize → Rules）で Cursor 側の環境に保存され、symlink できるファイルパスを持たないため。`~/.cursor/rules` は Cursor のどの配置先でもない。
+
+ファイルとして書けるのは次の 2 つで、どちらもリポジトリ単位のため dotfiles リポジトリからは配れない:
+
+| 形式 | 場所 | 制約 |
+|---|---|---|
+| Project Rules | `.cursor/rules/*.mdc` | `.mdc` 必須。`description` / `globs` / `alwaysApply` の frontmatter が要る。**frontmatter の無い `.md` は無視される** |
+| `AGENTS.md` | プロジェクト直下（サブディレクトリにネスト可） | frontmatter 不要 |
+
+したがって Cursor が aimod から受け取るのは **agents と skills のみ**。Cursor でグローバル指示を効かせたい場合は、UI の User Rules に貼るか、リポジトリ単位で `.cursor/rules/*.mdc` / `AGENTS.md` を置くか、内容をスキル化する。出典: <https://cursor.com/docs/context/rules>（ユーザーレベルの skills / agents / commands / hooks の配置先は Cursor 同梱の `~/.cursor/skills-cursor/create-skill` `create-subagent` 等を参照）。
 
 実測（2026-07-25 / `cursor-agent` v2026.07.23-e383d2b / `gpt-5.4-mini-medium`）:
 
