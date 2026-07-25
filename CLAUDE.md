@@ -95,7 +95,7 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 
 固定2体は見るスコープが排他的に設計されている。各エージェントは入力プロンプトから動作モード（`pr_review` / `self_review`）を自動判定する。出力 JSON の `mode` フィールドで実モードを追跡できる。
 
-`self_review` に専用スキルは無い（かつて `juggernaut` が入口だったが撤去済み）。セルフレビューは `meta-reviewer` / `fatal-reviewer` を Task ツールから直接起動し、プロンプトに `branch` / `plan` / 「セルフレビュー」を含めて自動判定させる。
+`self_review` に専用スキルは無い。セルフレビューは `meta-reviewer` / `fatal-reviewer` を Task ツールから直接起動し、プロンプトに `branch` / `plan` / 「セルフレビュー」を含めて自動判定させる。
 
 ## スペシャリスト（認知レンズ）エージェント
 
