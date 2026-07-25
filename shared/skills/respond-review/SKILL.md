@@ -211,21 +211,20 @@ gh api repos/{owner}/{repo}/pulls/{number}/reviews --paginate \
 
 **手順**:
 
-1. `review-acceptor.md` エージェント定義を `Read` してプロンプト本文を取得する
-2. `review-challenger.md` エージェント定義を `Read` してプロンプト本文を取得する
-3. 以下の2つの `Agent` 呼び出しを**同一メッセージ内で並列に**実行する:
+1. 以下の **付録 A（Acceptor）** / **付録 B（Challenger）** のプロンプトテンプレートを用いる（エージェント定義ファイルは使わない）
+2. 以下の2つの `Agent` 呼び出しを**同一メッセージ内で並列に**実行する:
 
 **Acceptor Agent**:
 - description: `Acceptor: PR #<番号> レビューコメント受容的評価`
-- prompt: review-acceptor.md の本文の `$COMMENTS` を Phase 2-5 で構築した全コメント入力パケットに、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
-  > 注: `Agent` ツールの `subagent_type` ではなく Read + prompt 埋め込みを使用する理由は、`$COMMENTS` や `$PROJECT_CONTEXT` などのプレースホルダーを動的に置換する必要があるため。
+- prompt: 付録 A の本文。`$COMMENTS` を Phase 2-5 で構築した全コメント入力パケットに、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
+  > 注: `Agent` ツールの `subagent_type` ではなく prompt 埋め込みを使用する理由は、`$COMMENTS` や `$PROJECT_CONTEXT` などのプレースホルダーを動的に置換する必要があるため。
 
 **Challenger Agent**:
 - description: `Challenger: PR #<番号> レビューコメント批判的評価`
-- prompt: review-challenger.md の本文の `$COMMENTS` を全コメント入力パケットに、`$DESIGN_CONTEXT` をPR body + baseブランチとの diff 概要に、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
+- prompt: 付録 B の本文。`$COMMENTS` を全コメント入力パケットに、`$DESIGN_CONTEXT` をPR body + baseブランチとの diff 概要に、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
 
-4. 両Agentの結果（JSON形式の評価結果）を取得する
-5. Phase 4 へ進む
+3. 両Agentの結果（JSON形式の評価結果）を取得する
+4. Phase 4 へ進む
 
 ---
 
@@ -499,3 +498,88 @@ PRBODY
 PR説明文: 更新済み（変更内容, テスト観点と影響範囲 等）
 PR URL: <URL>
 ```
+
+---
+
+## 付録 A: Acceptor（受容者）プロンプト
+
+PRレビューコメントを**好意的・受容的に**解釈する。レビュワーの指摘を「正当な改善要求」として捉え、修正すべき理由を積極的に探す。
+
+### プロジェクトコンテキスト
+
+$PROJECT_CONTEXT
+
+### 評価原則
+
+1. **善意の解釈**: レビュワーは改善を意図してコメントしている前提で読む
+2. **品質向上の機会**: コード品質・正確性・保守性・可読性が向上するなら修正の価値がある
+3. **プロジェクト規約との照合**: プロジェクトのコーディング規約・アーキテクチャパターンとの一貫性を重視
+4. **エッジケースの発見**: 指摘が示唆するエッジケースやバグの可能性を検討
+
+### 評価対象
+
+$COMMENTS
+
+### 出力フォーマット
+
+各コメントについて JSON 配列で出力:
+
+```json
+[
+  {
+    "thread_id": "<スレッドID>",
+    "verdict": "fix または no_fix",
+    "confidence": "high または medium または low",
+    "reasoning": "<修正すべき理由 or 修正不要の理由（2-3文）>",
+    "fix_category": "defect または improvement または convention または clarification_only",
+    "suggested_action": "<具体的な修正内容 or 返信内容の概要>"
+  }
+]
+```
+
+必ずコード実体を Read で確認してから評価する。
+
+---
+
+## 付録 B: Challenger（挑戦者）プロンプト
+
+PRレビューコメントを**批判的・防御的に**検証する。レビュワーの指摘が本当に正しいのか、こちらの設計意図と整合しているかを厳格に検証する。
+
+### プロジェクトコンテキスト
+
+$PROJECT_CONTEXT
+
+### 評価原則
+
+1. **設計意図の尊重**: PRの実装者には意図がある。その意図を理解した上で指摘の妥当性を判断する
+2. **既存パターンとの一貫性**: プロジェクトの既存パターンと一致しているなら現状維持が正当
+3. **指摘の正確性検証**: レビュワーの理解が正しいか、コードを実際に読んで検証する
+4. **AI由来の過剰指摘の検出**: AI Botや一般的ベストプラクティスの機械的適用を疑う
+5. **スコープの適切性**: この指摘はこのPRのスコープに含めるべきか
+
+### 評価対象
+
+$COMMENTS
+
+### 設計コンテキスト
+
+$DESIGN_CONTEXT
+
+### 出力フォーマット
+
+各コメントについて JSON 配列で出力:
+
+```json
+[
+  {
+    "thread_id": "<スレッドID>",
+    "verdict": "fix または no_fix",
+    "confidence": "high または medium または low",
+    "reasoning": "<修正すべき理由 or 修正不要の理由（2-3文）>",
+    "rejection_basis": "design_intent または pattern_consistency または factual_error または scope_mismatch または none（verdict が no_fix の場合のみ）",
+    "suggested_action": "<修正内容 or 反論の根拠>"
+  }
+]
+```
+
+必ずコード実体を Read で確認してから評価する。

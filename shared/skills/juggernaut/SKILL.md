@@ -226,7 +226,7 @@ Red → Green → Refactor の順で進める。テストが書きにくいタ�
 
 - `Plan` agent (`subagent_type: Plan`): 実装ステップ・重要ファイル・トレードオフを返す
 - `feature-dev:code-architect` agent: 既存コードベースのパターンに沿った設計 blueprint を返す
-- `meta-reviewer` + `techlead-reviewer` agent を **並列起動**して計画文書をレビュー（meta が方向性、techlead が技術アプローチ妥当性を見る）
+- `meta-reviewer` + `fatal-reviewer` agent を **並列起動**して計画文書をレビュー（meta が方向性、fatal が致命的リスクを見る）
 
 軽微な実装では省略してよいが、**省略した判断自体をユーザーに報告する**
 (例: 「計画レビューを省略しました。理由: 単一ファイルへの局所修正のため」)。
@@ -250,39 +250,37 @@ Red → Green → Refactor の順で進める。テストが書きにくいタ�
 
 ### 5-1. 並列レビュー (単一メッセージ内で同時起動)
 
-セルフレビュー専用の **メタ視点・PdM 視点・テックリード視点** の 3 体を **単一メッセージ内で並列**
-に Agent 起動する。3 体は **見るスコープが排他的**（重複しない）に設計されているため、
+セルフレビュー専用の **メタ視点・致命リスク視点** の 2 体を **単一メッセージ内で並列**
+に Agent 起動する。2 体は **見るスコープが排他的**（重複しない）に設計されているため、
 合議ではなく「異なる観点を埋める」並列実行になる:
 
 | Reviewer | 観点 | 見るもの | 見ないもの |
 |----------|------|----------|-----------|
 | `meta-reviewer` | そもそもこの方向性は正しいか（根本原因、前提誤解、車輪の再発明、長期方針との整合） | Issue / 実装計画 (or PR 本文) / 関連ドキュメント / ファイル一覧 | コード本文 |
-| `pdm-reviewer` | ユーザーに届く価値と仕様網羅性（AC 充足、ビジネスロジックのエッジケース、UX、テスト網羅） | Issue / 実装計画 (or PR 本文) / テストコード | 実装ロジック |
-| `techlead-reviewer` | ソフトウェア品質（パフォーマンス、保守性、セキュリティ、運用、開発持続性） | コード全体 / 実装計画 (or PR 本文) | Issue（アプローチと仕様は所与とみなす）/ Linter で検知できる事項 |
+| `fatal-reviewer` | 致命的リスクのみ（本番破壊・AC/契約違反）。`severity: fatal` 専用 | diff + Issue + PR本文 | 方向性の議論 |
 
 各 reviewer に渡すプロンプトには **作業ブランチ / Issue 番号 / 主要差分の概要 /
 重点で見て欲しい論点 / セルフレビューモードである旨** を含める。各 reviewer は会話文脈を
 持たないので自己完結したプロンプトにすること。各 reviewer 内の動作モード判定が
 セルフ/PR を切り替えるので、呼び出し側は単に該当の情報を渡せばよい。
 
-軽微な変更 (Phase 1 で「設定/ドキュメントの軽微変更」分類) は `techlead-reviewer`
-1 体だけでよい。設計判断を含む大きな変更は 3 体すべてを必ず並列で回す。
+設計判断を含む大きな変更は 2 体すべてを必ず並列で回す。軽微な変更 (Phase 1 で
+「設定/ドキュメントの軽微変更」分類) は `fatal-reviewer` 1 体だけでよい。
 
-各 reviewer は `findings[]` JSON で `severity: must/suggestion/nit/good` を返す:
+各 reviewer は `findings[]` JSON で severity を返す（`meta-reviewer`: must/suggestion/nit/good、`fatal-reviewer`: fatal のみ）:
 
-- `must` がある場合 → claude 側で修正してから Phase 6 に進む
+- `fatal` または `must` がある場合 → claude 側で修正してから Phase 6 に進む
 - `suggestion` / `nit` → その場で直すか PR 本文の TODO に積むかをコストで判断
 - `good` → そのまま Phase 6 へ進む根拠材料に使う
 
-3 体の出力には `mode: "self_review" | "pr_review"` フィールドが含まれるので、想定通りの
+2 体の出力には `mode: "self_review" | "pr_review"` フィールドが含まれるので、想定通りの
 モードで動いているかも合わせて確認する。
 
 ### 5-2. 異論・対立があるケース
 
-3 体は観点が排他的なので原則対立しないが、同一の差分に対して `meta-reviewer` が「方向性 NG」、
-`techlead-reviewer` が「実装は良い」のように **判断レベルが衝突** することがある。
-このときは **`review-acceptor` / `review-challenger` agent** を呼んで合議し、採否を決める。
-両者の合議で結論を出し、判断根拠を Phase 6 の PR 本文に残す。
+2 体は観点が排他的なので原則対立しないが、同一の差分に対して `meta-reviewer` が「方向性 NG」、
+`fatal-reviewer` が「致命的リスクなし」のように **判断レベルが衝突** することがある。
+このときはメインエージェントが目的・制約・リスク許容度に照らして最終判断し、判断根拠を Phase 6 の PR 本文に残す。
 
 PR レビューフローへ載せた方が良いほど重いケース（例: アーキテクチャ大変更）では
 `superpowers:requesting-code-review` skill を呼び、ガイド付きの形式でレビューを依頼する
@@ -290,10 +288,9 @@ PR レビューフローへ載せた方が良いほど重いケース（例: ア
 
 #### PR 起票後の追加レビューが必要な場合
 
-セルフレビューの 3 体は両モード対応なので、PR 起票後に同じ 3 体を `pr_number` 付きで
+セルフレビューの 2 体は両モード対応なので、PR 起票後に同じ 2 体を `pr_number` 付きで
 再度呼ぶことで、PR 上の文脈（CI 結果・PR 説明文の更新・他レビュアーのコメント）を踏まえた
-レビューもできる。`pr-review` skill で動く既存の 4 体（specification / correctness /
-quality-test / security-perf）と棲み分けて使う。
+レビューもできる。`pr-review` skill と棲み分けて使う。
 
 ### 5-3. 動作検証は claude が自律実行する
 
@@ -409,9 +406,9 @@ Phase 1 から再起動する:
 | 「コミット前にユーザー確認を取ろう」 | Phase 6 は自律完走が原則。破壊的操作以外は確認禁止 |
 | 「PR 起票は別ターンでいいだろう」 | Phase 6 に PR 起票まで含まれる。1 ターンで完走する |
 | 「動作確認はユーザーに任せよう」 | Phase 5-3 で claude が自律実行する。`run_in_background` と poll で待機すれば時間の問題は解決 |
-| 「reviewer 1 体だけでいいか」 | 観点は 3 つの reviewer (meta / pdm / techlead) がそれぞれ排他的。設計判断を含む変更は 3 体並列で全部回す |
+| 「reviewer 1 体だけでいいか」 | 観点は 2 つの reviewer (meta / fatal) が排他的。設計判断を含む変更は 2 体並列で回す |
 | 「self-review で大丈夫だろう」 | claude は自分のコードの盲点に気付けない。subagent reviewer に必ず通す |
-| 「meta が方向性 OK なら techlead だけでいいか」 | pdm 観点（AC 充足・エッジケース・UX）は別レイヤー。スキップ禁止 |
+| 「meta が方向性 OK なら fatal だけでいいか」 | meta 観点（方向性・前提・長期整合）は別レイヤー。スキップ禁止 |
 | 「内部スキーマだけ見れば nullable 判断できる」 | 公開 API の破壊的変更ではクライアント側の歴史的扱いが Source of Truth。Phase 3 で関連リポジトリ横断調査を必ず行う |
 | 「null fallback に sentinel 値（特殊な日付値・`-1` 等）を入れておけば安全」 | 既存コードベースに前例のない sentinel 契約を勝手に作るのは禁止。それは「歪み」を生み予測可能性を損なう。null は null のまま伝搬するか、5xx で異常を可視化する |
 | 「null を空文字や型のデフォルト値に潰せば後続コードが楽」 | 「未入力」と「不明」を区別不能にする情報破壊。値が無いものは Optional のまま伝搬してクライアントに意味的判断を委ねる |
@@ -438,9 +435,7 @@ Phase 1 から再起動する:
 | `superpowers:requesting-code-review` | ガイド付きレビュー依頼 | Phase 5-2 で重い案件のとき |
 | `superpowers:using-git-worktrees` | worktree の安全な作成 | Phase 2-1 から呼び出す |
 | `meta-reviewer` agent | 方向性レビュー（根本原因・前提・再発明・長期整合）。コードは見ない | Phase 5-1 で並列起動。両モード対応 |
-| `pdm-reviewer` agent | 価値・網羅性レビュー（AC・エッジケース・UX・テスト網羅）。実装ロジックは見ない | Phase 5-1 で並列起動。両モード対応 |
-| `techlead-reviewer` agent | 技術品質レビュー（性能・保守性・セキュリティ・運用・持続性）。Issue は見ない | Phase 5-1 で並列起動。両モード対応 |
-| `review-acceptor` / `review-challenger` agent | 合議的判断 | Phase 5-2 で判断レベルが衝突したとき |
+| `fatal-reviewer` agent | 致命リスクレビュー（本番破壊・AC/契約違反）。`severity: fatal` 専用 | Phase 5-1 で並列起動。両モード対応 |
 | `/git-commit` skill | コミット生成 | Phase 6-1 で常時委譲 |
 | `commit-commands:commit-push-pr` skill | コミット + push + PR | Phase 6-2 で利用可能なら優先 |
 | `/refine-issue` skill | Issue 精緻化 | Phase 2-2 で起票直後に呼ぶ選択肢 |
