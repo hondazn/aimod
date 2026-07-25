@@ -1,5 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "cleanupPeriodDays": 9999,
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
@@ -75,22 +76,10 @@
     ],
     "ask": [],
     "defaultMode": "auto",
-    "additionalDirectories": [
-      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS-web",
-      "/Users/sp_user/git/github.com/spiderplus/SPIDERPLUS_Flutter"
-    ]
+    "additionalDirectories": []
   },
   "hooks": {
     "PreToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/delegate-coding.sh"
-          }
-        ]
-      },
       {
         "matcher": "Bash",
         "hooks": [
@@ -170,11 +159,11 @@
       ]
     }
   },
-  "effortLevel": "xhigh",
+  "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "autoCompactEnabled": true,
   "remoteControlAtStartup": true,
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "cleanupPeriodDays": 9999
+  "skipAutoPermissionPrompt": true
 }
