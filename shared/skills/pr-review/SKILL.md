@@ -50,7 +50,7 @@ PRの変更内容を構造的に理解・解説し、一般的なコード品質
 2. 以下のいずれかの正規早期終了条件に該当することをユーザーへ明示報告した
    - PR が `OPEN` 以外（`MERGED` / `CLOSED`）であった（Phase 1-3）
    - 再レビューガードにより停止した（Phase 1-5A: 自発的再レビュー × APPROVED 済み 等）
-   - `post_approval_mode == true` かつ fatal なし かつ `is_requested_re_review == false` で、Phase 6-1 ルール表に従い投稿しない判断をした（マージブロック判定は `fatal` の有無で行う）
+   - `post_approval_mode == true` かつ fatal なし かつ must なし かつ `is_requested_re_review == false` で、Phase 6-1 ルール表に従い投稿しない判断をした（マージブロック判定は `fatal` の有無で行う。must が1件でもあれば「投稿しない」は正規早期終了にならず、`COMMENT` で投稿する）
 
 上記いずれにも該当しない状態でスキルを終了することは未完了であり、再開して Phase 6 まで進めること。特に Phase 4-5 で並列エージェントの結果統合が終わった時点はスキル全体の中間地点に過ぎず、ここで停止してはならない。
 
@@ -368,19 +368,42 @@ Phase 2-3 で検出されたプロジェクト固有エージェントがある�
 | `fatal-reviewer` | 致命 | diff + Issue + PR本文 | **fatal のみ** |
 | `selected_specialists[]` | 深掘り | 各専門領域 | must/suggestion/nit/good |
 
-`selected_specialists[]` への起動 `prompt` の末尾には必ず次を付ける:
+`selected_specialists[]` への起動 `prompt` の末尾には必ず次を付ける。**この呼び出しに限り、各スペシャリストのエージェント定義に書かれたネイティブな Markdown 出力フォーマットは無効化され、以下の JSON 出力が優先される**（スペシャリストが通常持つ「助言を Markdown 散文で返す」出力仕様は `consult-specialists` 経由の呼び出し用であり、`pr-review` からの呼び出しでは使わない）:
 
 ```text
-## 期待する出力（必須）
+## 期待する出力（必須・このセクションが自エージェント定義のMarkdown出力フォーマットに優先する）
 助言モード。次の JSON 以外を出力しない:
 {
   "reviewer": "<your-name>",
   "mode": "pr_review",
-  "findings": [ { ... meta-reviewer と同じフィールド ... } ],
+  "findings": [
+    {
+      "file": null,
+      "line": null,
+      "side": "RIGHT",
+      "start_line": null,
+      "start_side": null,
+      "severity": "must",
+      "category": "<自分の専門領域を表す短いカテゴリ名>",
+      "badge_label": "短いラベル（合計15文字以内 / 1行5文字以内 / 改行2回まで）",
+      "title": "問題の1行要約（triage 表とユーザー報告で使用）",
+      "rationale": "詳細な説明と根拠。ですます調。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。",
+      "suggestion": "具体的な改善案。あれば文字列、無ければ null",
+      "evidence": "参照元（引用元 URL / 既存資産パス / 過去 Issue・PR 番号 など）。無ければ null"
+    }
+  ],
   "note": null
 }
-severity は must|suggestion|nit|good のみ。fatal は付けるな（付けた場合は呼び出し側で must に降格する）。
 ```
+
+フィールド仕様は `meta-reviewer`（`shared/agents/meta-reviewer.md` の「フィールド仕様」節）と同一。特に:
+
+- `file` / `line` / `side` / `start_line` / `start_side`: 行レベル指摘があればパスと行番号を、PR/計画全体への指摘は `file: null` のまま
+- `severity` は `must|suggestion|nit|good` のみ。**`fatal` は付けるな**（付けた場合は呼び出し側で `must` に降格する。`fatal` は `fatal-reviewer` 専任）
+- `category`: 自分の専門領域（例: `qa` なら `"テスト網羅性"`、`safety-skeptic` なら `"セキュリティ"`）
+- `badge_label`: 合計15文字以内 / 1行5文字以内 / 改行2回まで / 日本語主体。制約違反時は呼び出し側で severity 別フォールバックに差し替わる（詳細: `shared/rules/review-badges.md`）
+- `title` / `rationale` / `suggestion` / `evidence`: meta-reviewer と同義。バッジ URL や severity マークは自分で付けない（呼び出し側 Phase 4-7 が付与する）
+- findings が0件なら空配列 `[]`
 
 各エージェントの起動パラメータ:
 
@@ -646,7 +669,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 **APPROVE 時の LGTM バッジ:**
 
-レビューイベントが `APPROVE` になる場合（`fatal` なしで投稿対象の指摘が実質ゼロ、または APPROVE 後再レビューで `fatal` なし）、サマリー本文に **LGTM バッジ** を埋め込む。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
+レビューイベントが `APPROVE` になる場合（`fatal` なしかつ `must` なしで投稿対象の指摘が実質ゼロ、または APPROVE 後再レビューで `fatal` なしかつ `must` なし）、サマリー本文に **LGTM バッジ** を埋め込む。`must` が残っている場合はイベントが `COMMENT` になるため LGTM バッジは使わない。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
 
 ラベルは `LGTM` 固定だが、装飾（color / animation / font）は APPROVE のたびにバリエーションを変えて「祝祭感」を出す。実装は **`mojiemoji-selector` サブエージェントに loud で委譲する**:
 
@@ -703,7 +726,8 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 | `COMMENTED` | fatalなし | 引き続き良い感じである旨を |
 | `COMMENTED` | fatalあり | 新しく致命的な点が見つかった旨を |
 | `APPROVED` | fatalあり | APPROVEした後に致命的な点に気づいた旨を丁寧に |
-| `APPROVED` | fatalなし | `is_requested_re_review == true`: 肯定的に（「問題なさそうです」等）。`false`: （GitHub に投稿しない） |
+| `APPROVED` | fatalなし・mustなし | `is_requested_re_review == true`: 肯定的に（「問題なさそうです」等）。`false`: （GitHub に投稿しない） |
+| `APPROVED` | fatalなし・mustあり | 「気になる点が見つかった」旨を端的に（`COMMENT` になるため LGTM バッジは使わない） |
 
 **再レビューサマリー例:**
 
@@ -760,11 +784,15 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 | 条件 | レビューイベント |
 |------|----------------|
-| `is_requested_re_review` + `post_approval_mode` + fatalなし | `APPROVE`（明示的に依頼された再レビューでは必ず投稿する） |
+| `is_requested_re_review` + `post_approval_mode` + fatalなし + mustなし | `APPROVE`（明示的に依頼された再レビューでは必ず投稿する） |
+| `is_requested_re_review` + `post_approval_mode` + fatalなし + mustあり | `COMMENT`（must が残っている以上、`APPROVE` にはしない） |
 | `is_requested_re_review` + `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
-| `post_approval_mode` + fatalなし | **投稿しない**（ユーザーにのみ報告） |
+| `post_approval_mode` + fatalなし + mustなし | **投稿しない**（ユーザーにのみ報告） |
+| `post_approval_mode` + fatalなし + mustあり | `COMMENT`（must をサイレントに握り潰さず投稿する。`REQUEST_CHANGES` にはしない） |
 | `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
 | 再レビュー（上記以外） | 通常ルール通り |
+
+**「投稿しない」が正規早期終了になるのは `post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false` の場合のみ**。must が1件でも残っている場合は必ず `COMMENT` で投稿する（マージブロックはしないが、must を握り潰して沈黙する/ APPROVE で握り潰すことは禁止）。
 
 ### 6-2. コメントJSONの構築と投稿
 
@@ -815,13 +843,14 @@ EOF
 
 報告に含める情報: PR番号+タイトル, イベント種別, コメント件数（重要度別）, URL。**投稿が成功した場合、URL は必須**。
 再レビュー時は追加: 抑制件数（理由別）, レビューラウンド。
-`post_approval_mode` + fatalなし + `is_requested_re_review == false` の場合: 「問題なし、GitHubへの投稿なし」旨と、その判断が Phase 6-1 ルール表の正規早期終了であることを明示報告する。
-`post_approval_mode` + fatalなし + `is_requested_re_review == true` の場合: APPROVEを投稿した旨を報告。
+`post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false` の場合: 「問題なし、GitHubへの投稿なし」旨と、その判断が Phase 6-1 ルール表の正規早期終了であることを明示報告する。
+`post_approval_mode` + fatalなし + mustあり + `is_requested_re_review == false` の場合: must が残っているため `COMMENT` で投稿した旨を報告（投稿しない判断にはしない）。
+`post_approval_mode` + fatalなし + `is_requested_re_review == true` の場合: mustなしなら APPROVE、mustありなら COMMENT を投稿した旨を報告。
 投稿に一部失敗があった場合は、成功・失敗を分けて報告する。
 
 ### 6-4. worktreeのクリーンアップ
 
-Phase 2-0 で作成した `$WORKTREE_DIR` を削除する。レビューが「投稿しない」結果（`post_approval_mode` + fatalなし + `is_requested_re_review == false`）であっても worktree は片付ける。
+Phase 2-0 で作成した `$WORKTREE_DIR` を削除する。レビューが「投稿しない」結果（`post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false`）であっても worktree は片付ける。
 
 ```bash
 git worktree remove "$WORKTREE_DIR"

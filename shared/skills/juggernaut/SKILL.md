@@ -264,8 +264,11 @@ Red → Green → Refactor の順で進める。テストが書きにくいタ�
 持たないので自己完結したプロンプトにすること。各 reviewer 内の動作モード判定が
 セルフ/PR を切り替えるので、呼び出し側は単に該当の情報を渡せばよい。
 
-設計判断を含む大きな変更は 2 体すべてを必ず並列で回す。軽微な変更 (Phase 1 で
-「設定/ドキュメントの軽微変更」分類) は `fatal-reviewer` 1 体だけでよい。
+設計判断を含む大きな変更は `meta-reviewer` + `fatal-reviewer` の固定2体を必ず並列で回す。
+軽微な変更 (Phase 1 で「設定/ドキュメントの軽微変更」分類) では、この固定2体の代わりに
+`consult-specialists` プールの `tech-lead` または `qa` を1体だけ起動すれば十分（`fatal-reviewer`
+単体は fatal 専用でスタイル・テスト不足等の一般品質チェックを拾えないため、軽微変更の
+唯一のレビュアーには向かない）。
 
 各 reviewer は `findings[]` JSON で severity を返す（`meta-reviewer`: must/suggestion/nit/good、`fatal-reviewer`: fatal のみ）:
 
