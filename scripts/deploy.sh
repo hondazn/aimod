@@ -91,10 +91,12 @@ link_codex_skill() {
   log "link $dest -> $src"
 }
 
-# Link a rules path without ever destroying rules we did not create. All three
-# rule locations are native to their tool and may already hold entries from
-# outside aimod, so anything not ours is left exactly as it is. Used for both
-# the whole-dir targets (~/.claude/rules, ~/.codex/rules) and the per-file ones
+# Link a rules path without ever destroying rules we did not create. Only
+# ~/.claude/rules is loaded natively by its tool; ~/.codex/rules is an aimod
+# convention that Codex reads on demand, since Codex has AGENTS.md alone with
+# no rule imports. Either way all three may already hold entries from outside
+# aimod, so anything not ours is left exactly as it is. Used for both the
+# whole-dir targets (~/.claude/rules, ~/.codex/rules) and the per-file ones
 # (~/.cursor/rules/<name>.md), where a generic name like coding.md can collide
 # with a rule the user already keeps there.
 link_rule_path() {
