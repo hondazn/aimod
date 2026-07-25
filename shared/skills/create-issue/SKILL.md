@@ -429,6 +429,7 @@ CI ワークフローの pull_request トリガーで path filter が効かず�
 | 相棒 | 役割 | このスキルとの関係 |
 |------|------|-------------------|
 | `/refine-issue` | 既存Issueの精緻化 | 起票後にプレースホルダ多めなら提案する |
+| `/understand-problem` `/devise-plan` | 問題定義・計画 | 整理した結果をこのスキルで Issue に固定する |
 | `/codex-investigate` | コードベース調査 | 事前調査が必要なら先に呼ばれる。このスキルは調査しない |
 | `/create-pr` | PR作成 | 対になる入口。Issue と PR で責務分担 |
 
