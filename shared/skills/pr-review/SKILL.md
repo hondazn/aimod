@@ -50,7 +50,7 @@ PRの変更内容を構造的に理解・解説し、一般的なコード品質
 2. 以下のいずれかの正規早期終了条件に該当することをユーザーへ明示報告した
    - PR が `OPEN` 以外（`MERGED` / `CLOSED`）であった（Phase 1-3）
    - 再レビューガードにより停止した（Phase 1-5A: 自発的再レビュー × APPROVED 済み 等）
-   - `post_approval_mode == true` かつ must なし かつ `is_requested_re_review == false` で、Phase 6-1 ルール表に従い投稿しない判断をした
+   - `post_approval_mode == true` かつ fatal なし かつ `is_requested_re_review == false` で、Phase 6-1 ルール表に従い投稿しない判断をした（マージブロック判定は `fatal` の有無で行う）
 
 上記いずれにも該当しない状態でスキルを終了することは未完了であり、再開して Phase 6 まで進めること。特に Phase 4-5 で並列エージェントの結果統合が終わった時点はスキル全体の中間地点に過ぎず、ここで停止してはならない。
 
@@ -396,7 +396,7 @@ severity は must|suggestion|nit|good のみ。fatal は付けるな（付けた
   8. **コード参照ルート（`$WORKTREE_DIR` の絶対パス）**: ファイルを読む必要がある場合はこの worktree 配下を基点にすること、本体作業ツリーやカレントブランチのファイルは読まないこと、を明示する
   9. **再レビュー時のみ**: `my_previous_comments` の内容（前回自分が指摘したファイル・行・内容の一覧）と以下の指示を追記する:
      - 「これは再レビューです。前回の指摘と矛盾する新しい指摘は出さないでください。既に指摘済みの問題は再指摘しないでください。」
-     - `post_approval_mode` 時は追加で: 「APPROVE後の再レビューです。must レベル（正しく動作しない、セキュリティリスク）の問題のみ報告してください。」
+     - `post_approval_mode` 時は追加で: 「APPROVE後の再レビューです。fatal / must レベル（正しく動作しない、セキュリティリスク）の問題のみ報告してください。」
 
 各エージェントは出力に `mode` フィールドを含むので、`pr_review` で動いたかを後段で確認できる。
 
@@ -646,7 +646,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 **APPROVE 時の LGTM バッジ:**
 
-レビューイベントが `APPROVE` になる場合（must が 0 件、または APPROVE 後再レビューで mustなし）、サマリー本文に **LGTM バッジ** を埋め込む。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
+レビューイベントが `APPROVE` になる場合（`fatal` なしで投稿対象の指摘が実質ゼロ、または APPROVE 後再レビューで `fatal` なし）、サマリー本文に **LGTM バッジ** を埋め込む。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
 
 ラベルは `LGTM` 固定だが、装飾（color / animation / font）は APPROVE のたびにバリエーションを変えて「祝祭感」を出す。実装は **`mojiemoji-selector` サブエージェントに loud で委譲する**:
 
@@ -672,14 +672,14 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 **構成ルール:**
 
-1. 冒頭にマージ判断を一文で書く — mustがあれば「修正が必要です」、なければ「マージしてOKです」のように判断を明示する
-2. mustがある場合は問題の **領域** に触れてよい（例: 「エラーハンドリング周りに気になるところがあります」）。ただし具体的な指摘内容（どの関数で何が起きているか等）はインラインに任せ、サマリーでは繰り返さない
+1. 冒頭にマージ判断を一文で書く — fatalがあれば「修正が必要です」、なければ「マージしてOKです」のように判断を明示する。mustのみ（fatalなし）の場合は「気になる点はあるがマージブロックではない」トーンを使ってよい（例:「気になる点はありますが、マージ自体は問題ありません」）
+2. fatal/mustがある場合は問題の **領域** に触れてよい（例: 「エラーハンドリング周りに気になるところがあります」）。ただし具体的な指摘内容（どの関数で何が起きているか等）はインラインに任せ、サマリーでは繰り返さない
 3. 設計方針やアーキテクチャについて議論が必要な場合のみ、補足を書く
 4. 件数の統計表は書かない
 5. Markdownの見出し（##, ###）は使わない
 6. 「インラインで書きました」「詳細はインラインを見てください」等、インラインコメントの存在に言及しない。GitHubのUIで自明であり、情報量がない
 7. 全体で1-4行に収める
-8. **再レビューの場合**（`is_re_review == true`）は1-2行に収める。mustがなければ「LGTM」等の一言で十分。「前回のレビューでは〜」のような冗長な振り返りはしない
+8. **再レビューの場合**（`is_re_review == true`）は1-2行に収める。fatalもmustもなければ「LGTM」等の一言で十分。「前回のレビューでは〜」のような冗長な振り返りはしない
 
 **バリエーションの原則:**
 
@@ -698,16 +698,16 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 | 前回の状態 (`previous_review_state`) | 今回の結果 | 冒頭のトーン |
 |--------------------------------------|-----------|-------------|
-| `CHANGES_REQUESTED` | mustなし | 前回の指摘が対応されたことを認めつつ、肯定的に |
-| `CHANGES_REQUESTED` | mustあり | 前回に続き気になる点がある旨を端的に |
-| `COMMENTED` | mustなし | 引き続き良い感じである旨を |
-| `COMMENTED` | mustあり | 新しく気になった点がある旨を |
-| `APPROVED` | mustあり | APPROVEした後に気づいた点がある旨を丁寧に |
-| `APPROVED` | mustなし | `is_requested_re_review == true`: 肯定的に（「問題なさそうです」等）。`false`: （GitHub に投稿しない） |
+| `CHANGES_REQUESTED` | fatalなし | 前回の致命指摘が解消されたことを認めつつ、肯定的に |
+| `CHANGES_REQUESTED` | fatalあり | まだマージできない致命がある旨を端的に |
+| `COMMENTED` | fatalなし | 引き続き良い感じである旨を |
+| `COMMENTED` | fatalあり | 新しく致命的な点が見つかった旨を |
+| `APPROVED` | fatalあり | APPROVEした後に致命的な点に気づいた旨を丁寧に |
+| `APPROVED` | fatalなし | `is_requested_re_review == true`: 肯定的に（「問題なさそうです」等）。`false`: （GitHub に投稿しない） |
 
 **再レビューサマリー例:**
 
-再レビューのサマリーは初回より短く、あっさりと書く。mustがなければ1行で済ませる。APPROVE になる場合は LGTM バッジを使う（`mojiemoji-selector` 経由で生成。装飾はバリエーション最大化。上記「APPROVE 時の LGTM バッジ」節参照）。例:
+再レビューのサマリーは初回より短く、あっさりと書く。fatalもmustもなければ1行で済ませる。APPROVE になる場合は LGTM バッジを使う（`mojiemoji-selector` 経由で生成。装飾はバリエーション最大化。上記「APPROVE 時の LGTM バッジ」節参照）。例:
 > 修正確認しました。<LGTM バッジ（mojiemoji-selector 生成）>
 
 再レビューでの指摘は最大3件に絞る。それ以上ある場合はユーザーに確認する。
@@ -750,18 +750,20 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 | 条件 | レビューイベント |
 |------|----------------|
-| must が1件以上 | `REQUEST_CHANGES` |
-| suggestion/nit のみ | `COMMENT` |
-| good のみ / 問題なし | `APPROVE` |
+| `severity == "fatal"` の finding が1件以上 | `REQUEST_CHANGES` |
+| fatalなし、かつ must/suggestion/nit のいずれかがある | `COMMENT` |
+| fatalなし、good のみ / 問題なし | `APPROVE` |
+
+マージブロック（`REQUEST_CHANGES`）は常に `fatal` の有無のみで決まる。`must` 単独では `REQUEST_CHANGES` にしない（`COMMENT` に留める）。
 
 **再レビュー時（以下が通常ルールより優先、上から順に最初にマッチした行を適用）:**
 
 | 条件 | レビューイベント |
 |------|----------------|
-| `is_requested_re_review` + `post_approval_mode` + mustなし | `APPROVE`（明示的に依頼された再レビューでは必ず投稿する） |
-| `is_requested_re_review` + `post_approval_mode` + mustあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
-| `post_approval_mode` + mustなし | **投稿しない**（ユーザーにのみ報告） |
-| `post_approval_mode` + mustあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
+| `is_requested_re_review` + `post_approval_mode` + fatalなし | `APPROVE`（明示的に依頼された再レビューでは必ず投稿する） |
+| `is_requested_re_review` + `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
+| `post_approval_mode` + fatalなし | **投稿しない**（ユーザーにのみ報告） |
+| `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
 | 再レビュー（上記以外） | 通常ルール通り |
 
 ### 6-2. コメントJSONの構築と投稿
@@ -813,13 +815,13 @@ EOF
 
 報告に含める情報: PR番号+タイトル, イベント種別, コメント件数（重要度別）, URL。**投稿が成功した場合、URL は必須**。
 再レビュー時は追加: 抑制件数（理由別）, レビューラウンド。
-`post_approval_mode` + mustなし + `is_requested_re_review == false` の場合: 「問題なし、GitHubへの投稿なし」旨と、その判断が Phase 6-1 ルール表の正規早期終了であることを明示報告する。
-`post_approval_mode` + mustなし + `is_requested_re_review == true` の場合: APPROVEを投稿した旨を報告。
+`post_approval_mode` + fatalなし + `is_requested_re_review == false` の場合: 「問題なし、GitHubへの投稿なし」旨と、その判断が Phase 6-1 ルール表の正規早期終了であることを明示報告する。
+`post_approval_mode` + fatalなし + `is_requested_re_review == true` の場合: APPROVEを投稿した旨を報告。
 投稿に一部失敗があった場合は、成功・失敗を分けて報告する。
 
 ### 6-4. worktreeのクリーンアップ
 
-Phase 2-0 で作成した `$WORKTREE_DIR` を削除する。レビューが「投稿しない」結果（`post_approval_mode` + mustなし + `is_requested_re_review == false`）であっても worktree は片付ける。
+Phase 2-0 で作成した `$WORKTREE_DIR` を削除する。レビューが「投稿しない」結果（`post_approval_mode` + fatalなし + `is_requested_re_review == false`）であっても worktree は片付ける。
 
 ```bash
 git worktree remove "$WORKTREE_DIR"
