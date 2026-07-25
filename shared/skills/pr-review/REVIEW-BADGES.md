@@ -167,7 +167,7 @@ CONSTRAINTS:
 
 ## 重複統合とバッジ
 
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドと `badge_label` は Phase 4-5 のルール 2 に従って決定される。詳細は `shared/skills/pr-review/SKILL.md` Phase 4-5 を参照。
+`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドと `badge_label` は Phase 4-5 のルール 2 に従って決定される。詳細は `SKILL.md` Phase 4-5 を参照。
 
 color・animation は Phase 4-7 の整形時に、勝った `reviewer` 名と severity と「Phase 4-7 内での出現順 i」から決定する。reviewer 側で事前確定する必要はない。
 

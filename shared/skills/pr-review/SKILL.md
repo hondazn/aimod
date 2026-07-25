@@ -401,7 +401,7 @@ Phase 2-3 で検出されたプロジェクト固有エージェントがある�
 - `file` / `line` / `side` / `start_line` / `start_side`: 行レベル指摘があればパスと行番号を、PR/計画全体への指摘は `file: null` のまま
 - `severity` は `must|suggestion|nit|good` のみ。**`fatal` は付けるな**（付けた場合は呼び出し側で `must` に降格する。`fatal` は `fatal-reviewer` 専任）
 - `category`: 自分の専門領域（例: `qa` なら `"テスト網羅性"`、`safety-skeptic` なら `"セキュリティ"`）
-- `badge_label`: 合計15文字以内 / 1行5文字以内 / 改行2回まで / 日本語主体。制約違反時は呼び出し側で severity 別フォールバックに差し替わる（詳細: `shared/rules/review-badges.md`）
+- `badge_label`: 合計15文字以内 / 1行5文字以内 / 改行2回まで / 日本語主体。制約違反時は呼び出し側で severity 別フォールバックに差し替わる（詳細: `REVIEW-BADGES.md`）
 - `title` / `rationale` / `suggestion` / `evidence`: meta-reviewer と同義。バッジ URL や severity マークは自分で付けない（呼び出し側 Phase 4-7 が付与する）
 - findings が0件なら空配列 `[]`
 
@@ -537,7 +537,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 `color` の `vivid-*` / `pastel-*` は mojiemoji.jozo.beer のサーバ側プリセット名であり、Tailwind 域指定とは別系列。レビューバッジは「アクションバッジ」枠（mojiemoji-github SKILL.md 「バッジと併用する」節の例外条項）として扱うため、severity 識別性を優先してこの固定色のままとする。
 
-ラベルは reviewer の `badge_label` 出力を採用し、制約違反時のみ `SEVERITY_FALLBACK_LABEL` に差し替える（バリデーション規則は本フェーズ手順 4 で定義）。詳細は `shared/rules/review-badges.md` の「badge_label の制約」節を参照。
+ラベルは reviewer の `badge_label` 出力を採用し、制約違反時のみ `SEVERITY_FALLBACK_LABEL` に差し替える（バリデーション規則は本フェーズ手順 4 で定義）。詳細は `REVIEW-BADGES.md` の「badge_label の制約」節を参照。
 
 **手順:**
 
@@ -600,7 +600,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 
 インラインコメント本文の **整形（バッジ URL・先頭装飾・suggestion 追記）は Phase 4-7 で機械的に処理される**。reviewer エージェントは構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返すだけで、URL の構築は行わない。
 
-`badge_label` は **その finding が「何の話か」を 15 文字以内の日本語で端的に表す短いラベル**（例: `根本原因外` / `AC漏れ` / `N+1警戒` / `見事な\n抽象化`）。文字数・改行・文字種の詳細制約と severity 別のフォールバックは `shared/rules/review-badges.md` の「badge_label の制約」節を参照。Phase 4-7 が制約違反を検出した場合は severity 別フォールバック（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）に差し替える。
+`badge_label` は **その finding が「何の話か」を 15 文字以内の日本語で端的に表す短いラベル**（例: `根本原因外` / `AC漏れ` / `N+1警戒` / `見事な\n抽象化`）。文字数・改行・文字種の詳細制約と severity 別のフォールバックは `REVIEW-BADGES.md` の「badge_label の制約」節を参照。Phase 4-7 が制約違反を検出した場合は severity 別フォールバック（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）に差し替える。
 
 **reviewer に残る「文化」（rationale 内で守られるべきもの）:**
 
@@ -631,7 +631,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
 - バッジ URL の構築（**mojiemoji-github のヘルパースクリプト経由**で `background=transparent` 等の必須パラメータを担保）と rationale 先頭への prepend
 - `suggestion` フィールドの末尾追記（`**改善案:** ...`）
 
-バッジ URL ビルド規則の正典は `shared/rules/review-badges.md` を参照。実際の URL 構築は mojiemoji-github スキル経由で行うため、ハードコード URL は使わない（Phase 4-7 「mojiemoji-github スキルへの委譲」節を参照）。
+バッジ URL ビルド規則の正典は `REVIEW-BADGES.md` を参照。実際の URL 構築は mojiemoji-github スキル経由で行うため、ハードコード URL は使わない（Phase 4-7 「mojiemoji-github スキルへの委譲」節を参照）。
 
 ### 5-3. レビューサマリー
 
@@ -689,7 +689,7 @@ BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
    ```
 3. 返ってきた `<img>` スニペットをそのままサマリー本文に貼り込む
 
-ヘルパースクリプト直接呼び出し（旧 `ruby "$HELPER" --text "LGTM" --color orange --animation kira --font gothic-bold`）は廃止。`mojiemoji-github` 側で都度装飾を選ぶことで `background=transparent` 等の必須要件と装飾多様性を同時に担保する。詳細は `shared/rules/review-badges.md` の「APPROVE 時 LGTM バッジ（特別枠）」節を参照。
+ヘルパースクリプト直接呼び出し（旧 `ruby "$HELPER" --text "LGTM" --color orange --animation kira --font gothic-bold`）は廃止。`mojiemoji-github` 側で都度装飾を選ぶことで `background=transparent` 等の必須要件と装飾多様性を同時に担保する。詳細は `REVIEW-BADGES.md` の「APPROVE 時 LGTM バッジ（特別枠）」節を参照。
 
 `COMMENT` / `REQUEST_CHANGES` のサマリーには LGTM バッジは付けない（マージ判断と矛盾するため）。
 
