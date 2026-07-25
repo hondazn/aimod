@@ -1,6 +1,6 @@
 # レビューコメント用バッジ定義（mojiemoji 版）
 
-このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer エージェント（`meta-reviewer` / `pdm-reviewer` / `techlead-reviewer`）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返し、Phase 4-7 がそれらを mojiemoji-github スキル経由でバッジ Markdown に組み立てます。
+このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer エージェント（`meta-reviewer` / `fatal-reviewer` / 動的スペシャリスト）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返し、Phase 4-7 がそれらを mojiemoji-github スキル経由でバッジ Markdown に組み立てます。
 
 画像生成 API は <https://mojiemoji.jozo.beer/>（Slack 絵文字サイズの PNG / GIF を返す）を利用します。
 
@@ -63,6 +63,7 @@ Phase 4-7 は `badge_label` が以下のいずれかに該当する場合、seve
 
 | severity | フォールバックラベル |
 |---|---|
+| `fatal` | `致命` |
 | `must` | `要修正` |
 | `suggestion` | `オススメ` |
 | `nit` | `ちょっと\n気になる` |
@@ -72,6 +73,7 @@ Phase 4-7 は `badge_label` が以下のいずれかに該当する場合、seve
 
 | severity | color | 意味 |
 |---|---|---|
+| `fatal` | `vivid-red` | マージしたら本番・契約・利用者を壊す |
 | `must` | `vivid-red` | 正しく動作しない、セキュリティリスク、要件未充足 |
 | `suggestion` | `vivid-blue` | より良い実装が存在する |
 | `nit` | `vivid-green` | 些細な改善点 |
@@ -85,9 +87,9 @@ Phase 4-7 は `badge_label` が以下のいずれかに該当する場合、seve
 
 | reviewer | アニメプール（ローテーション順） | 意味付け |
 |---|---|---|
+| `fatal-reviewer` | `gatagata` → `shuchusen` → `bure` → `chuuou_zoom` | 致命を揺らし集中線で止める |
 | `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon` | 集中線で前提に視線を奪う／グリッチで前提崩れ／弾みでやわらかく |
-| `pdm-reviewer` | `yoko_scroll` → `mochimochi` → `bane` → `shuchusen` → `poyoon` | ユーザー体験の流れ／弾むリズムで網羅性ハイライト／たまに集中線で焦点化 |
-| `techlead-reviewer` | `chuuou_zoom` → `gatagata` → `bure` → `shuchusen` → `poyoon` | 核心ズーム／ガタガタでバグの匂いを煽る／集中線で核心へ視線誘導 |
+| `*`（スペシャリスト共通フォールバック） | `yoko_scroll` → `mochimochi` → `bane` → `poyoon` | 動的スペシャリスト共通。個別プールは持たない |
 
 ### ローテーション規則
 
@@ -122,12 +124,12 @@ https://mojiemoji.jozo.beer/emoji/{badge_label}?color={color}&animation={animati
 
 `pr-review` Phase 4-7 はヘルパースクリプト経由で Markdown 画像参照を生成する。
 
-通常ケース（reviewer が出した `badge_label` を採用、`techlead-reviewer` の i=0、severity=good）:
+通常ケース（reviewer が出した `badge_label` を採用、`meta-reviewer` の i=0、severity=good）:
 
 ```bash
 ruby "$HELPER" --text $'見事な\n抽象化' \
-  --color pastel-green --animation chuuou_zoom --font gothic-bold
-# 出力: ![見事な抽象化](https://mojiemoji.jozo.beer/emoji/見事な%0A抽象化?color=pastel-green&animation=chuuou_zoom&font=gothic-bold&background=transparent)
+  --color pastel-green --animation shuchusen --font gothic-bold
+# 出力: ![見事な抽象化](https://mojiemoji.jozo.beer/emoji/見事な%0A抽象化?color=pastel-green&animation=shuchusen&font=gothic-bold&background=transparent)
 ```
 
 フォールバックケース（`badge_label` が空 / 制約違反だった場合、severity=must）:
@@ -165,7 +167,7 @@ CONSTRAINTS:
 
 ## 重複統合とバッジ
 
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドと `badge_label` は Phase 4-5 のルール 2 に従って決定される（重要度が高い側、同点時は `techlead-reviewer` 優先）。詳細は `shared/skills/pr-review/SKILL.md` Phase 4-5 を参照。
+`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドと `badge_label` は Phase 4-5 のルール 2 に従って決定される。詳細は `shared/skills/pr-review/SKILL.md` Phase 4-5 を参照。
 
 color・animation は Phase 4-7 の整形時に、勝った `reviewer` 名と severity と「Phase 4-7 内での出現順 i」から決定する。reviewer 側で事前確定する必要はない。
 
