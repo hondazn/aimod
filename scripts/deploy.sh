@@ -156,7 +156,8 @@ done
 # reach cursor-agent when measured; see CLAUDE.md before relying on them.
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
-# Cursor keeps AGENTS.md inside ~/.cursor/rules, so link rule files individually
+# We put AGENTS.md in ~/.cursor/rules ourselves (see above), so a whole-dir symlink
+# would clobber it — link rule files individually instead
 mkdir -p "$HOME/.cursor/rules"
 for rule in "$ROOT/shared/rules"/*.md; do
   link_rule_path "$rule" "$HOME/.cursor/rules/$(basename "$rule")" || true

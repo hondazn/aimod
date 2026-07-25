@@ -29,15 +29,15 @@ scripts/
   deploy.sh / undeploy.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor rules も既存の `AGENTS.md` と共存させるためファイル単位でリンクする。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor rules は `~/.cursor/rules/AGENTS.md` に aimod 自身が `instructions.md` を張るため、ディレクトリ丸ごとにするとその `AGENTS.md` を潰す。だからファイル単位でリンクする。
 
 `claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `cursor/rules/coding.md` は張っていない）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすとルール追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
 
-**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は次々段落のとおり、そもそも配置が届いていない）。
+**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は配置はされるが CLI ではロードされない。次々段落を参照）。
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
-一方 `cursor-agent` には **`~/.cursor/rules/` の内容が届いていない**（2026-07-25 / v2026.07.23-e383d2b）。ワークスペース直下の `CLAUDE.md` の各節は列挙されたが、`~/.cursor/rules/AGENTS.md` も `coding.md` も列挙されなかった。したがって Cursor 向けの配置は **少なくとも CLI では自動で効かない** 前提で扱い、確実に届けたい内容はリポジトリ直下のコンテキストファイルに置く。
+一方 `cursor-agent` には **`~/.cursor/rules/` の内容が届いていない**（2026-07-25 / v2026.07.23-e383d2b）。ワークスペース直下の `CLAUDE.md` の各節は列挙されたが、`~/.cursor/rules/AGENTS.md` も `coding.md` も列挙されなかった。したがって Cursor 向けの配置は **少なくとも CLI では自動で効かない** 前提で扱う。届くことを確認できているのはリポジトリ直下の `CLAUDE.md` だけなので、Cursor CLI に確実に渡したい内容はそこに置く（repo 直下 `AGENTS.md` など他のファイル名が読まれるかは未確認）。
 
 確認方法とその限界: `cursor-agent -p` にロード済みコンテキストを照会し、中立ディレクトリでは `Fast is fine, but accuracy is everything.` / `タスク別ルール` / `TDD で開発する` の 3 マーカーがすべて不在、リポジトリ内では上記の列挙結果、という 2 回の応答で判断した。**エージェントの自己申告に基づく間接的な確認**であり、CLI 1 バージョン・1 モデル（`gpt-5.4-mini-medium`）での結果。**Cursor IDE の挙動、および `~/.cursor/agents` / `~/.cursor/skills` が届くかは未確認**。バージョン更新時と、Cursor 向けデプロイを変更する前に再確認すること。
 
