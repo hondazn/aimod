@@ -7,7 +7,7 @@ description: |
   - 「PRをレビューして」「PR #123をレビュー」「コードレビューして」
   - GitHub PR URLが貼られた場合（例: https://github.com/.../pull/123）
   - 「このPRどう思う？」「変更内容を確認して」のような間接的な依頼
-  コード修正は行わない。修正が必要な場合は respond-review スキルに委譲する。
+  コード修正は行わない。修正が必要な場合は resolve-review スキルに委譲する。
 argument-hint: "[PR番号 例: #123 / 123 / URL]"
 allowed-tools:
   - Agent
@@ -176,7 +176,7 @@ gh pr diff <番号>
 
 `is_re_review == true` の場合、二転三転の防止と重複排除のためにPR上の既存レビューコメントを収集する。
 
-respond-review スキルと同じ GraphQL API でレビュースレッドを取得する:
+resolve-review スキルと同じ GraphQL API でレビュースレッドを取得する:
 
 ```bash
 gh api graphql -f query='
