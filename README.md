@@ -54,7 +54,9 @@ scripts/
 | `claude/settings.json` | `~/.claude/settings.json` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 
-rules の配置先はどれも各ツールのネイティブな置き場のため、同名の実体ファイル・外部ツール管理の symlink があれば破壊せず SKIP する（`~/.cursor/rules/coding.md` のようなファイル単位のリンクも同様）。取り込みたい場合は中身を `shared/rules` へ移してから再実行する。
+rules の配置先はどれも他ツールやユーザー自身のルールと共有しうるため、同名の実体ファイル・外部ツール管理の symlink があれば破壊せず SKIP する（`~/.cursor/rules/coding.md` のようなファイル単位のリンクも同様）。取り込みたい場合は中身を `shared/rules` へ移してから再実行する。
+
+自動ロードされるのは `~/.claude/rules` のみ。`~/.cursor/rules` は Cursor が読む置き場だがルールは `AGENTS.md` 経由で辿らせ、`~/.codex/rules` は Codex に rules の仕組みが無いため aimod 側の慣習置き場として使う。
 
 `shared/` からスキルやルールを消した場合、`~/.codex/skills/<name>` と `~/.cursor/rules/<name>.md` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。
 

@@ -50,10 +50,10 @@ Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`
 - `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
-- `shared/rules` → `~/.claude/rules`, `~/.codex/rules`（各ツールのネイティブなルール置き場のため、aimod 由来でない実体・外部ツール管理の symlink はどちらも破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
+- `shared/rules` → `~/.claude/rules`, `~/.codex/rules`（`~/.claude/rules` は Claude Code が自動ロードする置き場、`~/.codex/rules` は Codex が rules を自動ロードしないため aimod 側の慣習置き場。どちらも aimod 由来でない実体・外部ツール管理の symlink は破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
 - `shared/rules/<name>.md` → `~/.cursor/rules/<name>.md`（既存の `AGENTS.md` と共存するためファイル単位。`~/.claude/rules` 等と同じく、同名の実体・外部管理 symlink は破壊せず SKIP する）
 
-3 つの rules 配置先はすべて `link_rule_path` を通す。ネイティブなルール置き場は他ツールと共有するため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。`coding.md` のような汎用名はユーザー自身のルールと衝突しうるため、ディレクトリ単位だけでなくファイル単位のリンクにも同じ保護が要る。
+3 つの rules 配置先はすべて `link_rule_path` を通す。どの配置先も他ツールやユーザー自身のルールと共有しうるため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。`coding.md` のような汎用名はユーザー自身のルールと衝突しうるため、ディレクトリ単位だけでなくファイル単位のリンクにも同じ保護が要る。
 
 Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink なので削除に自動追随するが、Codex skills と Cursor rules はエントリ単位のため取り残しが出る。`deploy.sh` はリンク作成後に `prune_stale_link` で、**aimod 由来かつリンク先が消えた** symlink だけを除去する（`.system`・実体・外部ツール管理のリンクは `is_ours` 判定で保護）。
 
