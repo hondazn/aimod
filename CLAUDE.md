@@ -11,7 +11,7 @@ AIコーディングアシスタント（Claude Code、Cursor、Codex CLI）の�
 ```
 shared/          ← 実体（3ツール共通の正本）
   instructions.md ← グローバル指示（CLAUDE.md / AGENTS.md の正本）
-  agents/        ← PRレビュー用 3 体 + 合議用 + スペシャリスト 12 体（Claude/Cursorのみ）
+  agents/        ← PRレビュー用 2 体 + スペシャリスト 12 体（Claude/Cursorのみ）
   skills/        ← スラッシュコマンドで呼び出すスキル群
   rules/         ← 共通ルール（`review-badges.md`: レビューコメント用バッジ定義の正典）
 claude/          ← Claude Code用のツール固有ファイル
@@ -63,27 +63,24 @@ scripts/
 
 ## レビュー用エージェント
 
-`juggernaut` スキル（セルフレビュー）と `pr-review` スキル（PRレビュー）の両方で同じ 3 体を使う。観点が排他的に設計されているので並列起動しても指摘が重複しない。すべてのエージェントが統一された JSON 出力（`findings[]` + `severity: must/suggestion/nit/good` + `mode`）を返す。
+`pr-review` スキル（PRレビュー）では固定2体 + 差分に応じたスペシャリスト 0〜3 体を並列起動する。`juggernaut` スキル（セルフレビュー）は別構成（詳細は各スキル定義を参照）。すべてのエージェントが統一された JSON 出力（`findings[]` + `severity` + `mode`）を返す。
 
-### 主レビュー（3分割、観点が排他的）
+### PRレビュー構成（pr-review）
 
-| エージェント | 観点 | 見るもの | 見ないもの |
-|---|---|---|---|
-| `meta-reviewer` | 方向性（根本原因・Issue自体の妥当性・前提誤解・再発明と代替案・既存アーキ整合・長期整合） | Issue / 実装計画 (or PR本文) / 関連ドキュメント | コード本文 |
-| `pdm-reviewer` | 価値・網羅性（AC充足とスコープ整合・エッジケース・UXと後方互換・仕様曖昧さと矛盾・テスト網羅） | Issue / 実装計画 (or PR本文) / テストコード | 実装ロジック |
-| `techlead-reviewer` | 技術品質（正しさと堅牢性・性能・保守性・セキュリティ・運用・持続性とテスト構造） | コード全体 / 実装計画 (or PR本文) | Issue／Linterで検知できる事項 |
+固定:
 
-排他性の核は **「見ない境界」**: meta はコードを読まず、pdm は実装ロジックを読まず、techlead は Issue を読まない。観点が増えてもこの境界は維持する。
+| エージェント | 観点 |
+|---|---|
+| `meta-reviewer` | 方向性（コード本文は見ない） |
+| `fatal-reviewer` | 致命のみ（`severity: fatal`）。これだけが CHANGES_REQUESTED |
 
-各エージェントは入力プロンプトから動作モード（`pr_review` / `self_review`）を自動判定する。出力 JSON の `mode` フィールドで実モードを追跡できる。
+追加: メインが差分に応じて既存スペシャリストを 0〜3 体選ぶ（`qa` / `safety-skeptic` 等）。
 
-### 合議用
-
-- `review-acceptor` / `review-challenger`: 上記 3 体の判断レベルが衝突したときに合議で採否を決める
+固定2体は見るスコープが排他的に設計されている。各エージェントは入力プロンプトから動作モード（`pr_review` / `self_review`）を自動判定する。出力 JSON の `mode` フィールドで実モードを追跡できる。
 
 ## スペシャリスト（認知レンズ）エージェント
 
-`consult-specialists` スキル経由で呼ぶ、**専門性とスタンスを持つ 12 体** のサブエージェント。PR レビュー特化のレビュー用エージェント群（meta/pdm/techlead-reviewer 等）とは独立した枠組み。各エージェントは助言だけでなく専門領域の作業も実行する。最終判断はメインエージェント。
+`consult-specialists` スキル経由で呼ぶ、**専門性とスタンスを持つ 12 体** のサブエージェント。`pr-review` では差分に応じて 0〜3 体が動的追加メンバーとしても選ばれる。各エージェントは助言だけでなく専門領域の作業も実行する。最終判断はメインエージェント。
 
 ### Core Engineering
 

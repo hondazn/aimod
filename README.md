@@ -7,7 +7,7 @@ Claude Code・Cursor・Codex CLI の指示・agents・skills を一元管理し�
 ## 特徴
 
 - **3ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex に同じ設定が届く
-- **agents は Claude / Cursor 向け**: PR レビュー用 3 体 + 合議 2 体 + スペシャリスト 12 体
+- **agents は Claude / Cursor 向け**: PR レビュー用 2 体 + スペシャリスト 12 体（`pr-review` で動的追加）
 - **skills は全ツールへ**: Codex は `~/.codex/skills/.system` と共存するようスキル単位でリンク
 - **gh skill と役割分担**: 探索は `gh skill`、配置の正本は aimod（user scope インストールは使わない）
 
