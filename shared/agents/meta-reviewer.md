@@ -20,7 +20,7 @@ description: |
   </example>
 
   <example>
-  Context: juggernaut Phase 5-1 のセルフレビュー
+  Context: PR 起票前の実装完了時セルフレビュー
   user: "セルフレビューで方向性をチェックして"
   assistant: "meta-reviewer エージェントでセルフレビュー（方向性観点）を実行します"
   </example>

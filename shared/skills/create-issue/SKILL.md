@@ -3,7 +3,7 @@ allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git log:*) Bash(git diff:
 argument-hint: '[タスク概要 または省略 (コンテキストから推論)]'
 description: |
     新規 GitHub Issue を起票する。タスク内容から種別（feat/fix/docs/refactor/chore/perf/test/ci）を仮分類し、リポジトリ既存の Issue テンプレート・命名規則・ラベル運用に合わせてタイトルと本文を生成し、`gh issue create` で即起票する。確認ゲートは置かず仮決め即実行。情報不足でも仮のタイトル・本文で起票してから `/refine-issue` を提案する。
-    トリガー: 「Issueを作って」「Issueを起票して」「〜のバグを記録して」「〜の機能要望を登録して」「チケットを切って」「この件でIssue立てて」「タスクとしてIssue化して」「Issueにまとめて」。タスク・バグ・要望の記録依頼や、dev-orchestration の Phase 2-2 で新規起票が必要と判定された場合にも使用する。
+    トリガー: 「Issueを作って」「Issueを起票して」「〜のバグを記録して」「〜の機能要望を登録して」「チケットを切って」「この件でIssue立てて」「タスクとしてIssue化して」「Issueにまとめて」。タスク・バグ・要望の記録依頼全般に使用する。
 name: create-issue
 ---
 # 新規Issue起票
@@ -23,7 +23,7 @@ $ARGUMENTS
 
 このスキルが存在する理由:
 
-- dev-orchestrationのPhase 2-2から呼ばれる「骨格チェックポイント」としての役割
+- 着手前に作業を Issue として記録する「骨格チェックポイント」としての役割
 - 「Issue作って」のような独立トリガーからも同じ品質で起票できる再利用性
 - タイトル命名規則・本文テンプレ適用・種別仮分類のノウハウを一箇所に集約
 
@@ -330,7 +330,7 @@ Issue #<番号> を起票しました: <URL>
 本文の精緻化は `/refine-issue #<番号>` で行えます。
 ```
 
-dev-orchestrationから呼ばれた場合は、Issue番号を呼び出し元に戻すだけで十分（ユーザー報告は呼び出し元が行う）。
+別のスキルから呼ばれた場合は、Issue 番号を呼び出し元に戻すだけで十分（ユーザー報告は呼び出し元が行う）。
 
 ---
 
@@ -382,10 +382,10 @@ dev-orchestrationから呼ばれた場合は、Issue番号を呼び出し元に�
 
 起票後: `/refine-issue` 提案（明確にすべきポイントが 5 項目あるため）
 
-### 例2: dev-orchestration経由の仮決め起票
+### 例2: 会話の文脈からの仮決め起票
 
-**呼び出し元の文脈:**
-> （dev-orchestration Phase 2-2）CI ワークフローの pull_request トリガーで path filter が効いていないので修正したい
+**会話の文脈:**
+> CI ワークフローの pull_request トリガーで path filter が効いていないので修正したい
 
 **生成:**
 
@@ -420,7 +420,7 @@ CI ワークフローの pull_request トリガーで path filter が効かず�
 - [ ] リグレッション確認方法（PR ドラフトで fire & check）
 ```
 
-起票後、dev-orchestration に Issue 番号を返し、Phase 3 以降に引き継ぐ。
+起票後、Issue 番号を報告し、実装着手に引き継ぐ。
 
 ---
 
@@ -429,7 +429,6 @@ CI ワークフローの pull_request トリガーで path filter が効かず�
 | 相棒 | 役割 | このスキルとの関係 |
 |------|------|-------------------|
 | `/refine-issue` | 既存Issueの精緻化 | 起票後にプレースホルダ多めなら提案する |
-| `dev-orchestration` | ワークフロー判断ハブ | Phase 2-2 からこのスキルを呼ぶ |
 | `/codex-investigate` | コードベース調査 | 事前調査が必要なら先に呼ばれる。このスキルは調査しない |
 | `/create-pr` | PR作成 | 対になる入口。Issue と PR で責務分担 |
 

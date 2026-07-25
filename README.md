@@ -60,7 +60,7 @@ rules の配置先はどれも各ツールのネイティブな置き場のた�
 
 管理しないもの: `~/.codex/config.toml`、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`
 
-## スキル・エージェントの追加
+## スキル・エージェント・ルールの追加
 
 ```bash
 # スキル
@@ -71,7 +71,14 @@ mkdir -p shared/skills/my-skill
 # エージェント（Claude / Cursor のみ）
 # shared/agents/my-agent.md を書く
 ./scripts/deploy.sh
+
+# ルール（3ツール共通）
+# shared/rules/my-task.md を書く
+# shared/instructions.md の「タスク別ルール」表に1行追加する
+./scripts/deploy.sh
 ```
+
+`shared/rules/` のファイルは Claude Code で毎セッション全文がロードされる。特定スキルからしか参照しない長大な参照表は rules ではなく、そのスキルの補助ファイル（`shared/skills/<skill>/`）として置く。
 
 ### gh skill について
 
