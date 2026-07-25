@@ -6,7 +6,7 @@ Claude Code・Cursor・Codex CLI の指示・agents・skills を一元管理し�
 
 ## 特徴
 
-- **3ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex に同じ設定が届く
+- **3ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex の配置先に同じ内容が反映される（各ツールが実際に読み込む範囲は「デプロイ先」節を参照）
 - **agents は Claude / Cursor 向け**: PR レビュー用 2 体 + スペシャリスト 12 体（`pr-review` で動的追加）
 - **skills は全ツールへ**: Codex は `~/.codex/skills/.system` と共存するようスキル単位でリンク
 - **gh skill と役割分担**: 探索は `gh skill`、配置の正本は aimod（user scope インストールは使わない）
@@ -58,7 +58,7 @@ rules の配置先はどれも他ツールやユーザー自身のルールと�
 
 上の表は `deploy.sh` が作る**配置先**であって、各ツールがそれを読み込むかは別問題。自動ロードが確認できているのは `~/.claude/rules` のみで、Codex 向けは `~/.codex/AGENTS.md` 末尾の「タスク別ルール」表を入口に、エージェントが必要なときだけ該当ファイルを読む前提で置いている。
 
-`cursor-agent` は `~/.cursor/rules/` を読み込まないことを実測済み（2026-07-25 / v2026.07.23-e383d2b）。Cursor 向けの配置は現状効いていないため、Cursor CLI に確実に届けたい内容はリポジトリ直下のコンテキストファイルに置く。詳細は [`CLAUDE.md`](CLAUDE.md) を参照。
+`cursor-agent`（CLI）には `~/.cursor/rules/` の内容が届いていないことを確認済み（2026-07-25 / v2026.07.23-e383d2b）。Cursor CLI に確実に届けたい内容はリポジトリ直下のコンテキストファイルに置く。**Cursor IDE 側は未検証**。確認方法とその限界は [`CLAUDE.md`](CLAUDE.md) を参照。
 
 `shared/` からスキルやルールを消した場合、`~/.codex/skills/<name>` と `~/.cursor/rules/<name>.md` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。
 

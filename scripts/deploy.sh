@@ -151,7 +151,9 @@ for entry in "$HOME/.codex/skills"/*; do
   prune_stale_link "$entry"
 done
 
-# Rules — Claude loads ~/.claude/rules natively; Cursor / Codex read them on demand
+# Rules — only ~/.claude/rules is loaded automatically. Codex reads them on demand
+# via the task-rules table in AGENTS.md. The Cursor copies are placed but did not
+# reach cursor-agent when measured; see CLAUDE.md before relying on them.
 link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
 link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
 # Cursor keeps AGENTS.md inside ~/.cursor/rules, so link rule files individually

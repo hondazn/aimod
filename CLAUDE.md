@@ -33,11 +33,13 @@ scripts/
 
 `claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `cursor/rules/coding.md` は張っていない）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすとルール追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
 
-**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Cursor / Codex 側の入口を兼ねる。
+**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Codex 側の入口を兼ねる（Cursor は次々段落のとおり、そもそも配置が届いていない）。
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
-一方 `cursor-agent` は **`~/.cursor/rules/` を読み込まない**（`cursor-agent -p` でロード済みコンテキストを照会して実測、2026-07-25 / v2026.07.23-e383d2b）。ワークスペース直下の `CLAUDE.md` は読むが、`~/.cursor/rules/AGENTS.md` も `coding.md` も届かない。つまり Cursor 向けの配置先は現状 **置いてあるだけで自動では効かない**。Cursor CLI に確実に届けたい内容はリポジトリ直下のコンテキストファイルに置くこと。IDE 側の挙動は未確認。
+一方 `cursor-agent` には **`~/.cursor/rules/` の内容が届いていない**（2026-07-25 / v2026.07.23-e383d2b）。ワークスペース直下の `CLAUDE.md` の各節は列挙されたが、`~/.cursor/rules/AGENTS.md` も `coding.md` も列挙されなかった。したがって Cursor 向けの配置は **少なくとも CLI では自動で効かない** 前提で扱い、確実に届けたい内容はリポジトリ直下のコンテキストファイルに置く。
+
+確認方法とその限界: `cursor-agent -p` にロード済みコンテキストを照会し、中立ディレクトリでは `Fast is fine, but accuracy is everything.` / `タスク別ルール` / `TDD で開発する` の 3 マーカーがすべて不在、リポジトリ内では上記の列挙結果、という 2 回の応答で判断した。**エージェントの自己申告に基づく間接的な確認**であり、CLI 1 バージョン・1 モデル（`gpt-5.4-mini-medium`）での結果。**Cursor IDE の挙動、および `~/.cursor/agents` / `~/.cursor/skills` が届くかは未確認**。バージョン更新時と、Cursor 向けデプロイを変更する前に再確認すること。
 
 ## デプロイ
 
@@ -143,4 +145,4 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 ## 注意事項
 
 - `shared/instructions.md` はグローバル設定（`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` / `~/.cursor/rules/AGENTS.md`）としてデプロイされるため、変更の影響範囲が広い
-- `shared/` 配下の変更は Claude Code・Cursor・Codex のすべてに影響する（agents は Claude/Cursor のみ）
+- `shared/` 配下の変更は Claude Code・Cursor・Codex すべての配置先に反映される（agents は Claude/Cursor のみ）。ただし配置と実際のロードは別問題で、Cursor 向け rules は CLI に届いていない（「instructions.md と rules/ の切り分け」節を参照）
