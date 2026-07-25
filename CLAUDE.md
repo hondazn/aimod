@@ -10,10 +10,10 @@ AIコーディングアシスタント（Claude Code、Cursor、Codex CLI）の�
 
 ```
 shared/          ← 実体（3ツール共通の正本）
-  instructions.md ← グローバル指示（CLAUDE.md / AGENTS.md の正本）
+  instructions.md ← グローバル指示（CLAUDE.md / AGENTS.md の正本）。汎用ルールのみ
   agents/        ← PRレビュー用 2 体 + スペシャリスト 12 体（Claude/Cursorのみ）
   skills/        ← スラッシュコマンドで呼び出すスキル群
-  rules/         ← 共通ルール（`review-badges.md`: レビューコメント用バッジ定義の正典）
+  rules/         ← タスク別ルール（`coding.md`: コード変更時に適用）。3ツール共通
 claude/          ← Claude Code用のツール固有ファイル
   CLAUDE.md -> ../shared/instructions.md
   agents -> ../shared/agents
@@ -29,7 +29,11 @@ scripts/
   deploy.sh / undeploy.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor rules も既存の `AGENTS.md` と共存させるためファイル単位でリンクする。
+
+**instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Cursor / Codex 側の入口を兼ねる。
+
+Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
 
 ## デプロイ
 
@@ -44,16 +48,27 @@ scripts/
 - `shared/agents` → `~/.claude/agents`, `~/.cursor/agents`
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
+- `shared/rules` → `~/.claude/rules`, `~/.codex/rules`（各ツールのネイティブなルール置き場のため、aimod 由来でない実体・外部ツール管理の symlink はどちらも破壊せず SKIP する。取り込みたい場合は中身を `shared/rules` へ移してから再実行）
+- `shared/rules/<name>.md` → `~/.cursor/rules/<name>.md`（既存の `AGENTS.md` と共存するためファイル単位。`~/.claude/rules` 等と同じく、同名の実体・外部管理 symlink は破壊せず SKIP する）
+
+3 つの rules 配置先はすべて `link_rule_path` を通す。ネイティブなルール置き場は他ツールと共有するため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。`coding.md` のような汎用名はユーザー自身のルールと衝突しうるため、ディレクトリ単位だけでなくファイル単位のリンクにも同じ保護が要る。
+
+Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink なので削除に自動追随するが、Codex skills と Cursor rules はエントリ単位のため取り残しが出る。`deploy.sh` はリンク作成後に `prune_stale_link` で、**aimod 由来かつリンク先が消えた** symlink だけを除去する（`.system`・実体・外部ツール管理のリンクは `is_ours` 判定で保護）。
+
+なお `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` / `~/.cursor/rules/AGENTS.md` は aimod が所有権を持つ配置先として、既存の実体があれば `replace non-symlink` をログに出して置換する（SKIP しない）。ここを SKIP にすると、既存ファイルのあるマシンで初回デプロイが何も反映されなくなるため。
 - `claude/settings.json` → `~/.claude/settings.json`
 - `claude/statusline.sh` → `~/.claude/statusline.sh`
 
 管理しない: `~/.codex/config.toml`, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`
 
-## スキル・エージェントの追加
+## スキル・エージェント・ルールの追加
 
 - **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude/Cursor のみ）→ `./scripts/deploy.sh`
+- **ルール追加**: `shared/rules/<task>.md` を作成 → `instructions.md` の「タスク別ルール」表に1行追加 → `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
+
+`shared/rules/` に置いたファイルは Claude Code で**毎セッション全文がロードされる**。特定スキルからしか参照しない長大な参照表は rules ではなく、そのスキルの補助ファイルとして `shared/skills/<skill>/` に置くこと（例: `pr-review/REVIEW-BADGES.md`）。
 
 ### gh skill との関係
 

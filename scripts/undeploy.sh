@@ -34,6 +34,15 @@ unlink_if_ours "$HOME/.cursor/agents"
 unlink_if_ours "$HOME/.claude/skills"
 unlink_if_ours "$HOME/.cursor/skills"
 
+unlink_if_ours "$HOME/.claude/rules"
+unlink_if_ours "$HOME/.codex/rules"
+
+# Cursor rules are linked per file so AGENTS.md and non-aimod files stay untouched
+shopt -s nullglob
+for rule in "$ROOT/shared/rules"/*.md; do
+  unlink_if_ours "$HOME/.cursor/rules/$(basename "$rule")"
+done
+
 unlink_if_ours "$HOME/.claude/settings.json"
 unlink_if_ours "$HOME/.claude/statusline.sh"
 
