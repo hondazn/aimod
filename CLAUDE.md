@@ -31,6 +31,8 @@ scripts/
 
 **設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor rules も既存の `AGENTS.md` と共存させるためファイル単位でリンクする。
 
+`claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `cursor/rules/coding.md` は張っていない）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすとルール追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
+
 **instructions.md と rules/ の切り分け**: `instructions.md` には作業種別を問わず常に効く汎用ルールだけを置き、特定作業のルールは `rules/<task>.md` に分離する。Claude Code は `~/.claude/rules/` をネイティブに自動ロードするが、Codex は AGENTS.md 一枚のみで import も glob スコープも持たない。そのため `instructions.md` 末尾の「タスク別ルール」表が Cursor / Codex 側の入口を兼ねる。
 
 Claude Code では `~/.claude/rules/` の内容が **subagent にも届く**（`claude -p` から subagent を起動して実測、2026-07-25 / v2.1.220）。公式ドキュメントが subagent へ届くものとして列挙しているのは project rules だけで user-level rules の記載がないため、バージョン更新時は再確認すること。
@@ -78,7 +80,7 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 
 ## レビュー用エージェント
 
-`pr-review` スキル（PRレビュー）では固定2体 + 差分に応じたスペシャリスト 0〜3 体を並列起動する。`juggernaut` スキル（セルフレビュー）は別構成（詳細は各スキル定義を参照）。すべてのエージェントが統一された JSON 出力（`findings[]` + `severity` + `mode`）を返す。
+`pr-review` スキル（PRレビュー）では固定2体 + 差分に応じたスペシャリスト 0〜3 体を並列起動する。すべてのエージェントが統一された JSON 出力（`findings[]` + `severity` + `mode`）を返す。
 
 ### PRレビュー構成（pr-review）
 
@@ -92,6 +94,8 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 追加: メインが差分に応じて既存スペシャリストを 0〜3 体選ぶ（`qa` / `safety-skeptic` 等）。
 
 固定2体は見るスコープが排他的に設計されている。各エージェントは入力プロンプトから動作モード（`pr_review` / `self_review`）を自動判定する。出力 JSON の `mode` フィールドで実モードを追跡できる。
+
+`self_review` に専用スキルは無い（かつて `juggernaut` が入口だったが撤去済み）。セルフレビューは `meta-reviewer` / `fatal-reviewer` を Task ツールから直接起動し、プロンプトに `branch` / `plan` / 「セルフレビュー」を含めて自動判定させる。
 
 ## スペシャリスト（認知レンズ）エージェント
 
@@ -130,7 +134,7 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 - **観点が独立なら並列、依存するなら逐次**: 例）architect + qa + safety-skeptic は並列／solver → tech-lead は逐次
 - **助言モード／作業モード**: プロンプトで明示する。作業も任せられる（テスト追加、撤去計画起草、コピー書き換え等）
 - **メインエージェントが統合・判断する**: 採用・棄却・保留を分け、衝突は目的／制約／リスク許容度に照らして決める
-- **PR 専用フローは既存スキル優先**: PR レビューは `pr-review`、実装着手は `juggernaut`。本枠組みはそれらの中で「不足する視点を補う」位置付け
+- **PR 専用フローは既存スキル優先**: PR レビューは `pr-review`。本枠組みはその中で「不足する視点を補う」位置付け
 
 詳細は `shared/skills/consult-specialists/SKILL.md` を参照。
 
