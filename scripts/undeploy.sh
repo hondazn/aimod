@@ -38,14 +38,17 @@ unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 unlink_if_ours "$HOME/.cursor/rules"
 
-# Cursor rules are linked per file so files the user keeps there stay untouched.
-# AGENTS.md is legacy: instructions.md used to live here before ~/AGENTS.md.
-shopt -s nullglob
-unlink_if_ours "$HOME/.cursor/rules/AGENTS.md"
-for rule in "$ROOT/shared/rules"/*.md; do
-  unlink_if_ours "$HOME/.cursor/rules/$(basename "$rule")"
-done
-rmdir "$HOME/.cursor/rules" 2>/dev/null || true
+# Cursor rules are linked per file, so sweep the destination rather than deriving the
+# list from shared/rules: that would miss links left behind by a rule we have since
+# deleted, and the legacy AGENTS.md that lived here before ~/AGENTS.md. Files the user
+# keeps here are not symlinks into ROOT, so unlink_if_ours leaves them alone.
+if [[ -d "$HOME/.cursor/rules" ]]; then
+  shopt -s nullglob
+  for entry in "$HOME/.cursor/rules"/*; do
+    unlink_if_ours "$entry"
+  done
+  rmdir "$HOME/.cursor/rules" 2>/dev/null || true
+fi
 
 unlink_if_ours "$HOME/.claude/settings.json"
 unlink_if_ours "$HOME/.claude/statusline.sh"
