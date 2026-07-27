@@ -5,6 +5,11 @@ input=$(cat)
 # ─── Color helpers ───
 h2r() { local h="${1#\#}"; echo "$((16#${h:0:2}));$((16#${h:2:2}));$((16#${h:4:2}))"; }
 
+# ─── mtime helper (epoch seconds) ───
+# GNU stat を先に試す。BSD の `stat -f` は Linux では FS 情報を stdout に吐いて
+# 終了するため、素の `-f` フォールバックだと数値でない出力が混入する。
+_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+
 # ─── OSC 8 hyperlink helper ───
 _link() { echo "\033]8;;${1}\007${2}\033]8;;\007"; }
 
@@ -159,7 +164,7 @@ if [ -n "$ISSUE_NUM" ] && [ -n "$GH_BASE_URL" ]; then
 
   if [ -f "$CACHE_FILE" ]; then
     ISSUE_TITLE=$(cat "$CACHE_FILE" 2>/dev/null)
-    cache_age=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0) ))
+    cache_age=$(( $(date +%s) - $(_mtime "$CACHE_FILE") ))
     if [ "$cache_age" -gt "$CACHE_TTL" ] && [ ! -f "$LOCK_FILE" ]; then
       touch "$LOCK_FILE" 2>/dev/null
       ( gh issue view "$ISSUE_NUM" --repo "${owner}/${repo}" --json title -q '.title' \
@@ -218,7 +223,7 @@ COST_SEG=""
 MODE_PARTS=""
 [ -n "$EFFORT" ] && MODE_PARTS+="💭 ${EFFORT}"
 if [ "$THINKING" = "true" ]; then
-  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "
+  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="✨ thinking"
 fi
 if [ -n "$STYLE" ] && [ "$STYLE" != "default" ]; then
   [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="🎨 ${STYLE}"
