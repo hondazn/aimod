@@ -216,9 +216,9 @@ COST_SEG=""
 
 # ─── Mode cluster text (effort / thinking / output_style) ───
 MODE_PARTS=""
-[ -n "$EFFORT" ] && MODE_PARTS+="🎚 ${EFFORT}"
+[ -n "$EFFORT" ] && MODE_PARTS+="💭 ${EFFORT}"
 if [ "$THINKING" = "true" ]; then
-  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="💭"
+  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "
 fi
 if [ -n "$STYLE" ] && [ "$STYLE" != "default" ]; then
   [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="🎨 ${STYLE}"
@@ -266,10 +266,10 @@ fi
 if [ -n "$PR_NUM" ]; then
   pr_label="🔀#${PR_NUM}"
   case "$PR_STATE" in
-    approved)          pr_bg="$BG_PR_APPROVED"; pr_label+=" ✓approved" ;;
-    changes_requested) pr_bg="$BG_PR_CHANGES";  pr_label+=" ✗changes" ;;
-    draft)             pr_bg="$BG_PR_DRAFT";    pr_label+=" ◐draft" ;;
-    pending)           pr_bg="$BG_PR_PENDING";  pr_label+=" •pending" ;;
+    approved)          pr_bg="$BG_PR_APPROVED"; pr_label+=" ✅approved" ;;
+    changes_requested) pr_bg="$BG_PR_CHANGES";  pr_label+=" ❌changes" ;;
+    draft)             pr_bg="$BG_PR_DRAFT";    pr_label+=" 🐤draft" ;;
+    pending)           pr_bg="$BG_PR_PENDING";  pr_label+=" ✋pending" ;;
     *)                 pr_bg="$BG_PR_DRAFT" ;;
   esac
   if [ -n "$PR_URL" ]; then

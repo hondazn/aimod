@@ -1,23 +1,12 @@
 ---
-name: respond-review
+allowed-tools: Read(*) Write(*) Edit(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(ls:*) AskUserQuestion Agent
+argument-hint: '[PR番号 例: #123 または 123]'
 description: |
-  PRの未解決レビューコメントを取得し、Acceptor（受容者）/Challenger（挑戦者）の
-  2視点で合議的に評価して最適な対応（修正 / 返信 / スキップ）を自律的に導くスキル。
-  トリガー: 「レビュー対応して」「レビューコメントを修正して」「PR #NNのレビューを対応して」「PRレビューをトリアージして」「レビューを精査して」
-argument-hint: "[PR番号 例: #123 または 123]"
-allowed-tools:
-  - Read(*)
-  - Write(*)
-  - Edit(*)
-  - Glob(*)
-  - Grep(*)
-  - Bash(gh:*)
-  - Bash(git:*)
-  - Bash(ls:*)
-  - AskUserQuestion
-  - Agent
+    PRの未解決レビューコメントを取得し、Acceptor（受容者）/Challenger（挑戦者）の
+    2視点で合議的に評価して最適な対応（修正 / 返信 / スキップ）を自律的に導くスキル。
+    トリガー: 「レビュー対応して」「レビューコメントを修正して」「PR #NNのレビューを対応して」「PRレビューをトリアージして」「レビューを精査して」
+name: resolve-review
 ---
-
 # レビューコメント対応（合議型分類・修正・返信）
 
 ## ユーザー入力
@@ -222,21 +211,20 @@ gh api repos/{owner}/{repo}/pulls/{number}/reviews --paginate \
 
 **手順**:
 
-1. `review-acceptor.md` エージェント定義を `Read` してプロンプト本文を取得する
-2. `review-challenger.md` エージェント定義を `Read` してプロンプト本文を取得する
-3. 以下の2つの `Agent` 呼び出しを**同一メッセージ内で並列に**実行する:
+1. 以下の **付録 A（Acceptor）** / **付録 B（Challenger）** のプロンプトテンプレートを用いる（エージェント定義ファイルは使わない）
+2. 以下の2つの `Agent` 呼び出しを**同一メッセージ内で並列に**実行する:
 
 **Acceptor Agent**:
 - description: `Acceptor: PR #<番号> レビューコメント受容的評価`
-- prompt: review-acceptor.md の本文の `$COMMENTS` を Phase 2-5 で構築した全コメント入力パケットに、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
-  > 注: `Agent` ツールの `subagent_type` ではなく Read + prompt 埋め込みを使用する理由は、`$COMMENTS` や `$PROJECT_CONTEXT` などのプレースホルダーを動的に置換する必要があるため。
+- prompt: 付録 A の本文。`$COMMENTS` を Phase 2-5 で構築した全コメント入力パケットに、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
+  > 注: `Agent` ツールの `subagent_type` ではなく prompt 埋め込みを使用する理由は、`$COMMENTS` や `$PROJECT_CONTEXT` などのプレースホルダーを動的に置換する必要があるため。
 
 **Challenger Agent**:
 - description: `Challenger: PR #<番号> レビューコメント批判的評価`
-- prompt: review-challenger.md の本文の `$COMMENTS` を全コメント入力パケットに、`$DESIGN_CONTEXT` をPR body + baseブランチとの diff 概要に、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
+- prompt: 付録 B の本文。`$COMMENTS` を全コメント入力パケットに、`$DESIGN_CONTEXT` をPR body + baseブランチとの diff 概要に、`$PROJECT_CONTEXT` を収集済みのプロジェクトコンテキストに置換
 
-4. 両Agentの結果（JSON形式の評価結果）を取得する
-5. Phase 4 へ進む
+3. 両Agentの結果（JSON形式の評価結果）を取得する
+4. Phase 4 へ進む
 
 ---
 
@@ -510,3 +498,147 @@ PRBODY
 PR説明文: 更新済み（変更内容, テスト観点と影響範囲 等）
 PR URL: <URL>
 ```
+
+---
+
+## 付録 A: Acceptor（受容者）プロンプト
+
+PRレビューコメントを**好意的・受容的に**解釈する。レビュワーの指摘を「正当な改善要求」として捉え、修正すべき理由を積極的に探す。
+
+### プロジェクトコンテキスト
+
+$PROJECT_CONTEXT
+
+### 評価原則
+
+1. **善意の解釈**: レビュワーは改善を意図してコメントしている前提で読む
+2. **品質向上の機会**: コード品質・正確性・保守性・可読性が向上するなら修正の価値がある
+3. **プロジェクト規約との照合**: プロジェクトのコーディング規約・アーキテクチャパターンとの一貫性を重視
+4. **エッジケースの発見**: 指摘が示唆するエッジケースやバグの可能性を検討
+
+### 評価対象
+
+$COMMENTS
+
+### verdict の判定基準
+
+- **fix**: 以下のいずれかに該当する場合
+  - 指摘がバグや潜在的不具合を指している
+  - 修正によりコード品質が明確に向上する
+  - プロジェクト規約・パターンとの一貫性を改善する
+  - エラーハンドリングやエッジケースの漏れを補完する
+- **no_fix**: 以下のいずれかに該当する場合
+  - 指摘が事実誤認に基づいている
+  - 修正の価値よりコストが明確に大きい
+  - 質問であり回答のみで足りる
+
+### confidence の基準
+
+- **high**: 根拠が明確で判断に迷いがない
+- **medium**: 妥当だが別解釈の余地がある
+- **low**: 判断材料が不足、またはトレードオフが拮抗
+
+### 出力フォーマット
+
+各コメントについて JSON 配列で出力:
+
+```json
+[
+  {
+    "thread_id": "<スレッドID>",
+    "verdict": "fix または no_fix",
+    "confidence": "high または medium または low",
+    "reasoning": "<修正すべき理由 or 修正不要の理由（2-3文）>",
+    "fix_category": "defect または improvement または convention または clarification_only",
+    "suggested_action": "<具体的な修正内容 or 返信内容の概要>"
+  }
+]
+```
+
+必ずコード実体を Read で確認してから評価する。
+
+---
+
+## 付録 B: Challenger（挑戦者）プロンプト
+
+PRレビューコメントを**批判的・防御的に**検証する。レビュワーの指摘が本当に正しいのか、こちらの設計意図と整合しているかを厳格に検証する。
+
+### プロジェクトコンテキスト
+
+$PROJECT_CONTEXT
+
+### 評価原則
+
+1. **設計意図の尊重**: PRの実装者には意図がある。その意図を理解した上で指摘の妥当性を判断する
+2. **既存パターンとの一貫性**: プロジェクトの既存パターンと一致しているなら現状維持が正当
+3. **指摘の正確性検証**: レビュワーの理解が正しいか、コードを実際に読んで検証する
+4. **AI由来の過剰指摘の検出**: AI Botや一般的ベストプラクティスの機械的適用を疑う
+5. **スコープの適切性**: この指摘はこのPRのスコープに含めるべきか
+
+### レビュワー属性の扱い
+
+コメントに付与されたレビュワー属性（Phase 2-3 参照）を判断材料に含める:
+
+| 属性 | 懐疑レベル |
+|------|-----------|
+| AI Bot（`[bot]`サフィックス） | 高い。AIは文脈を誤解しやすい |
+| AI代弁（人間アカウントだがAI的文体） | 中程度。人間の判断が介在している可能性 |
+| 人間 | 標準。内容そのもので判断 |
+
+AI文体の検出ヒント: 過度に構造化された箇条書き、「〜する可能性があります」「〜を検討してください」の多用、コードベース全体を見渡せていない指摘（ローカルな視点のみ）、一般的なベストプラクティスの引用（プロジェクト固有の文脈無視）。
+
+### 評価対象
+
+$COMMENTS
+
+### 設計コンテキスト
+
+$DESIGN_CONTEXT
+
+### verdict の判定基準
+
+- **fix**: 以下のいずれかに該当する場合
+  - こちらが本当に見落としていたバグ・問題がある
+  - 既存パターンとの不一致がこちら側にある
+  - 指摘内容が正確で、設計意図と矛盾しない改善である
+- **no_fix**: 以下のいずれかに該当する場合
+  - こちらの意図的な設計判断とレビュワーの提案が異なる
+  - レビュワーの指摘自体が事実誤認
+  - プロジェクトの既存パターンとの一貫性がこちらにある
+  - このPRのスコープ外の改善提案（別Issue化が適切）
+  - AI由来の文脈無視の一般論
+
+### rejection_basis（verdict が no_fix の場合のみ出力）
+
+- **design_intent**: 設計意図との不一致
+- **pattern_consistency**: 既存パターンとの一貫性
+- **factual_error**: レビュワーの事実誤認
+- **scope_mismatch**: PRスコープ外
+- **none**: 上記4カテゴリに該当しない場合（質問への回答など）
+
+> verdict が fix の場合は `rejection_basis` フィールドを省略すること。Phase 4-2 の細分化テーブルがこの値をそのまま使う。
+
+### confidence の基準
+
+- **high**: コードを確認済みで根拠が明確
+- **medium**: 妥当だが設計意図の推測に依存
+- **low**: 判断材料が不足、追加情報が必要
+
+### 出力フォーマット
+
+各コメントについて JSON 配列で出力:
+
+```json
+[
+  {
+    "thread_id": "<スレッドID>",
+    "verdict": "fix または no_fix",
+    "confidence": "high または medium または low",
+    "reasoning": "<修正すべき理由 or 修正不要の理由（2-3文）>",
+    "rejection_basis": "design_intent または pattern_consistency または factual_error または scope_mismatch または none（verdict が no_fix の場合のみ）",
+    "suggested_action": "<修正内容 or 反論の根拠>"
+  }
+]
+```
+
+必ずコード実体を Read で確認してから評価する。

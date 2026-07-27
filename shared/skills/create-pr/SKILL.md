@@ -1,26 +1,11 @@
 ---
-name: create-pr
+allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
+argument-hint: '[補足 例: base ブランチ指定・draft PR 指示 など。省略可]'
 description: |
-  GitHub Pull Requestを作成する。現在のブランチの差分とコミット履歴・関連Issue・既存PRのパターンを読み取り、
-  タイトル・本文（変更概要・動作確認エビデンス・Test Plan・Issue紐付け・レビュー重点確認ポイント）を生成し、`gh pr create`で即起票する。
-  確認ゲートは置かず、仮決め即実行を基本とする。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
-  トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」
-  「変更をPRにまとめて」「作業をPRにして」「PR化して」。
-  明示的に「PR」という語を含まなくても、コミット後の「共有準備」「リモートに出して」「レビュー依頼して」
-  といった依頼や、dev-orchestrationのPhase 6でPR作成が必要と判定された場合にも使用する。
-  コミット作成は`/git-commit`の役割なので、このスキルはPR作成に限定する。
-argument-hint: "[補足 例: base ブランチ指定・draft PR 指示 など。省略可]"
-allowed-tools:
-  - Read(*)
-  - Glob(*)
-  - Grep(*)
-  - Bash(gh:*)
-  - Bash(git:*)
-  - Bash(cat:*)
-  - Bash(ls:*)
-  - Bash(rm:*)
+    GitHub Pull Request を作成する。現在のブランチ差分・コミット履歴・関連Issue・既存PRパターンから、タイトルと本文（変更概要・動作確認エビデンス・Test Plan・Issue 紐付け・レビュー重点確認ポイント）を生成し、`gh pr create` で即起票する。確認ゲートは置かず仮決め即実行。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
+    トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」「変更をPRにまとめて」「作業をPRにして」「PR化して」「共有準備」「リモートに出して」「レビュー依頼して」。
+name: create-pr
 ---
-
 # 新規PR作成
 
 ## ユーザー入力
@@ -38,7 +23,7 @@ $ARGUMENTS
 
 このスキルが存在する理由:
 
-- dev-orchestration の Phase 6 から呼ばれる「統合チェックポイント」としての役割
+- 実装完了からレビュー依頼までの「統合チェックポイント」としての役割
 - 「PR を作って」の独立トリガーからも同品質で起票できる再利用性
 - タイトル・本文・Test Plan・Issue 紐付け・レビュー重点ポイントのノウハウを一箇所に集約
 
@@ -70,7 +55,7 @@ git status                      # 未コミット変更がないか
 
 | 状況 | 対応 |
 |------|------|
-| 現在が `main` / `master` / `trunk` | 中止。dev-orchestration の Phase 2-1 で worktree を切るべきだったと報告 |
+| 現在が `main` / `master` / `trunk` | 中止。作業ブランチ（または worktree）を切って変更を移してから再実行するよう報告する。worktree 運用は `superpowers:using-git-worktrees` を案内する |
 | 未コミット変更あり | 中止。`/git-commit` を先に呼ぶようユーザーに提案 |
 | main との差分コミット数が 0 | 中止。「差分がないため PR を作れません」と報告 |
 | リモートに push 未実施 | 無条件で `git push -u origin <branch>` を実行してから Phase 1-2 に進む（確認しない） |
@@ -407,7 +392,7 @@ Closes #12
 
 状態: ready（80 行程度の軽微な修正）
 
-### 例2: dev-orchestration 経由の feat PR（draft）
+### 例2: 実装途中の feat PR（draft）
 
 **前提:**
 
@@ -471,7 +456,6 @@ Closes #8
 |------|------|-------------------|
 | `/git-commit` | ローカルコミット | 前提として呼ばれる。このスキルはコミット作成しない |
 | `/create-issue` | 新規 Issue 起票 | 対になる入口。Issue と PR で責務分担 |
-| `dev-orchestration` | ワークフロー判断ハブ | Phase 6 からこのスキルを呼ぶ |
 | `codex:rescue` | 差分レビュー | PR 作成**前**に呼ぶ想定。このスキルは事前レビュー済み前提で起票 |
 | `pr-review` | 起票後の PR レビュー | このスキルで起票した PR を pr-review でチェックする流れ |
 

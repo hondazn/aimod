@@ -1,22 +1,14 @@
 ---
-name: refine-issue
+allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(ls:*) AskUserQuestion
+argument-hint: '[Issue番号 例: #123 または 123 または URL]'
 description: |
-  既存のGitHub Issueを分析し、種別（feat/fix/docs等）に応じたチェックリストで不足情報を特定し、
-  対話的に補完・精緻化してIssueを更新する。コードベース調査結果を文脈として具体的な選択肢を提示する。
-  トリガー: 「Issueをリファインして」「Issue #NNを精緻化して」「Issueの仕様を詰めて」
-  「Issueに情報を追加して」「Issueを整理して」「このIssueで実装に着手できるようにして」
-  Issue番号やURLが含まれるIssue改善の依頼には必ずこのスキルを使うこと。
-argument-hint: "[Issue番号 例: #123 または 123 または URL]"
-allowed-tools:
-  - Read(*)
-  - Glob(*)
-  - Grep(*)
-  - Bash(gh:*)
-  - Bash(git:*)
-  - Bash(ls:*)
-  - AskUserQuestion
+    既存のGitHub Issueを分析し、種別（feat/fix/docs等）に応じたチェックリストで不足情報を特定し、
+    対話的に補完・精緻化してIssueを更新する。コードベース調査結果を文脈として具体的な選択肢を提示する。
+    トリガー: 「Issueをリファインして」「Issue #NNを精緻化して」「Issueの仕様を詰めて」
+    「Issueに情報を追加して」「Issueを整理して」「このIssueで実装に着手できるようにして」
+    Issue番号やURLが含まれるIssue改善の依頼には必ずこのスキルを使うこと。
+name: refine-issue
 ---
-
 # Issue精緻化
 
 ## ユーザー入力
