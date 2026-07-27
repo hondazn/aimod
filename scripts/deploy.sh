@@ -184,4 +184,13 @@ done
 link "$ROOT/claude/settings.json" "$HOME/.claude/settings.json"
 link "$ROOT/claude/statusline.sh" "$HOME/.claude/statusline.sh"
 
+# Cursor-only files (cli-config.json is intentionally not managed)
+link "$ROOT/cursor/statusline.sh" "$HOME/.cursor/statusline.sh"
+
+# Codex accepts built-in footer item IDs only, so this cannot share Claude's
+# command-based statusline implementation.
+"$ROOT/scripts/manage-codex-statusline.sh" \
+  apply "$HOME/.codex/config.toml" "$ROOT/codex/statusline.toml"
+log "configure $HOME/.codex/config.toml tui.status_line"
+
 log "done"

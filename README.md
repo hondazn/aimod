@@ -34,7 +34,7 @@ shared/
   rules/            # タスク別ルール（coding.md）。3ツール共通
 claude/             # settings.json など Claude 固有 + 参照用 symlink
 cursor/             # 参照用 symlink
-codex/              # 参照用 symlink
+codex/              # 参照用 symlink + status-line 定義
 scripts/
   deploy.sh
   undeploy.sh
@@ -52,6 +52,8 @@ scripts/
 | `shared/rules/<name>.md` | `~/.cursor/rules/<name>.md`（ファイル単位）|
 | `claude/settings.json` | `~/.claude/settings.json` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
+| `cursor/statusline.sh` | `~/.cursor/statusline.sh` |
+| `codex/statusline.toml` | `~/.codex/config.toml` の `tui.status_line`（他の設定は保持）|
 
 rules の配置先と `~/AGENTS.md` は、他ツールやユーザー自身のファイルと共有しうるため、同名の実体・外部ツール管理の symlink があれば破壊せず SKIP する。取り込みたい場合は中身を `shared/` へ移してから再実行する。
 
@@ -63,7 +65,9 @@ Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワーク�
 
 `shared/` からスキルやルールを消した場合、`~/.codex/skills/<name>` と `~/.cursor/rules/<name>.md` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。
 
-管理しないもの: `~/.codex/config.toml`、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`
+`~/.codex/config.toml` はファイル全体を管理せず、`codex/statusline.toml` の `tui.status_line` だけをマージする。`undeploy.sh` は値が aimod の定義と一致する場合だけ削除し、ユーザーが変更した値や他の設定は保持する。
+
+管理しないもの: `~/.codex/config.toml` のその他の設定、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`
 
 ## スキル・エージェント・ルールの追加
 

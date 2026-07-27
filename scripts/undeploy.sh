@@ -52,6 +52,11 @@ fi
 
 unlink_if_ours "$HOME/.claude/settings.json"
 unlink_if_ours "$HOME/.claude/statusline.sh"
+unlink_if_ours "$HOME/.cursor/statusline.sh"
+
+"$ROOT/scripts/manage-codex-statusline.sh" \
+  remove "$HOME/.codex/config.toml" "$ROOT/codex/statusline.toml"
+log "undeploy managed tui.status_line from $HOME/.codex/config.toml if unchanged"
 
 # Remove a legacy file-level skill dir if every file/symlink resolves into ROOT.
 remove_legacy_skill_dir_if_ours() {

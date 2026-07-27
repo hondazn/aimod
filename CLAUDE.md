@@ -19,13 +19,17 @@ claude/          ← Claude Code用のツール固有ファイル
   agents -> ../shared/agents
   skills -> ../shared/skills
   settings.json / statusline.sh
-cursor/          ← Cursor用（repo内参照用symlink）
+cursor/          ← Cursor用（repo内参照用symlink + ツール固有ファイル）
   agents -> ../shared/agents
   skills -> ../shared/skills
-codex/           ← Codex用（repo内参照用symlink）
+  statusline.sh
+codex/           ← Codex用（repo内参照用symlink + ツール固有設定）
   AGENTS.md -> ../shared/instructions.md
+  statusline.toml
 scripts/
-  deploy.sh / undeploy.sh
+  deploy.sh / undeploy.sh / manage-codex-statusline.sh
+tests/
+  codex-statusline-config-test.sh
 ```
 
 **設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor のみ（Codex は同型の agents をサポートしない）。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。
@@ -93,8 +97,12 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 なお `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` は aimod が所有権を持つ配置先として、既存の実体があれば `replace non-symlink` をログに出して置換する（SKIP しない）。ここを SKIP にすると、既存ファイルのあるマシンで初回デプロイが何も反映されなくなるため。
 - `claude/settings.json` → `~/.claude/settings.json`
 - `claude/statusline.sh` → `~/.claude/statusline.sh`
+- `cursor/statusline.sh` → `~/.cursor/statusline.sh`（`cli-config.json` の `statusLine` は手動で有効化）
+- `codex/statusline.toml` → `~/.codex/config.toml` の `tui.status_line`（既存ファイルへマージし、他の設定は保持）
 
-管理しない: `~/.codex/config.toml`, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`
+Codex は Claude のような command-based status line をサポートせず、組み込み項目 ID の配列を `tui.status_line` に設定する。`deploy.sh` はこのキーだけを追加・置換する。`undeploy.sh` は現在値が `codex/statusline.toml` と完全一致する場合だけ削除し、ユーザーが変更した値は残す。
+
+管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`
 
 ## スキル・エージェント・ルールの追加
 
