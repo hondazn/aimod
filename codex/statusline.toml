@@ -1,0 +1,2 @@
+[tui]
+status_line = ["codex-version", "model-with-reasoning", "project-name", "git-branch", "branch-changes", "pull-request-number", "context-used", "used-tokens", "five-hour-limit", "weekly-limit"]
