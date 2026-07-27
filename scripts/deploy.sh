@@ -31,12 +31,19 @@ is_ours() {
   local dest="$1" target
   [[ -L "$dest" ]] || return 1
   target="$(readlink -f "$dest" || true)"
+  if [[ "$target" == "$ROOT" || "$target" == "$ROOT"/* ]]; then
+    return 0
+  fi
+  # readlink -f refuses to resolve when an intermediate directory of the target
+  # is gone (e.g. a per-file link into a directory removed from shared/), so
+  # fall back to the raw link text; aimod always links with absolute paths.
+  target="$(readlink "$dest")"
   [[ "$target" == "$ROOT" || "$target" == "$ROOT"/* ]]
 }
 
 # Drop a link we created whose source is gone. Claude / Cursor get one symlink
 # for the whole skills dir and follow deletions on their own; only the per-entry
-# targets (Codex skills, Cursor rules) can strand a dangling link.
+# targets (Codex skills) can strand a dangling link.
 prune_stale_link() {
   local dest="$1"
   if [[ -e "$dest" ]] || ! is_ours "$dest"; then
@@ -91,12 +98,10 @@ link_codex_skill() {
   log "link $dest -> $src"
 }
 
-# Link a rules directory without ever destroying rules we did not create. Only
-# ~/.claude/rules is loaded natively by its tool; ~/.codex/rules is an aimod
-# convention that Codex reads on demand, since Codex has AGENTS.md alone with
-# no rule imports. Both may already hold entries from outside aimod, so anything
-# not ours is left exactly as it is.
-link_rule_path() {
+# Link into a destination aimod shares with the user or other tools, without ever
+# destroying anything we did not create: an existing real file or a symlink managed
+# outside aimod is skipped, not replaced.
+link_guarded_path() {
   local src="$1" dest="$2"
   if [[ -L "$dest" ]]; then
     if [[ "$(readlink "$dest")" == "$src" ]]; then
@@ -130,7 +135,7 @@ link "$ROOT/shared/instructions.md" "$HOME/.codex/AGENTS.md"
 # cursor-agent's output; ~/.cursor/AGENTS.md and ~/.cursor/rules do not, and neither
 # Claude Code nor Codex pick it up, so nothing is loaded twice). Guarded rather than
 # replaced: a hand-written ~/AGENTS.md is the user's, not ours.
-link_rule_path "$ROOT/shared/instructions.md" "$HOME/AGENTS.md" || true
+link_guarded_path "$ROOT/shared/instructions.md" "$HOME/AGENTS.md" || true
 
 # Agents (Claude / Cursor only)
 link "$ROOT/shared/agents" "$HOME/.claude/agents"
@@ -153,32 +158,23 @@ for entry in "$HOME/.codex/skills"/*; do
   prune_stale_link "$entry"
 done
 
-# Rules — only ~/.claude/rules is loaded automatically. Codex reads them on demand
-# via the task-rules table in AGENTS.md.
-link_rule_path "$ROOT/shared/rules" "$HOME/.claude/rules" || true
-link_rule_path "$ROOT/shared/rules" "$HOME/.codex/rules" || true
-
-# Cursor: ~/.cursor/rules is not auto-loaded either. It is the storage the agent opens
-# on demand via the task-rules table in AGENTS.md. Linked per file rather than as a
-# whole directory: taking the directory would deliver nothing the moment the user
-# keeps a file of their own there, because link_rule_path refuses to replace it.
-if is_ours "$HOME/.cursor/rules"; then
-  rm -f "$HOME/.cursor/rules"
-  log "migrate: drop whole-dir link $HOME/.cursor/rules"
-fi
-mkdir -p "$HOME/.cursor/rules"
-for rule in "$ROOT/shared/rules"/*.md; do
-  link_rule_path "$rule" "$HOME/.cursor/rules/$(basename "$rule")" || true
+# Rules were dissolved into skills (seiren / coding-standards / design-principles).
+# Drop the links prior versions deployed; anything not ours stays untouched.
+for legacy in "$HOME/.claude/rules" "$HOME/.codex/rules" "$HOME/.cursor/rules"; do
+  if is_ours "$legacy"; then
+    rm -f "$legacy"
+    log "migrate: drop $legacy (rules moved into skills)"
+  fi
 done
-# instructions.md used to be linked here as AGENTS.md; it lives at ~/AGENTS.md now.
-if is_ours "$HOME/.cursor/rules/AGENTS.md"; then
-  rm -f "$HOME/.cursor/rules/AGENTS.md"
-  log "migrate: drop $HOME/.cursor/rules/AGENTS.md (now ~/AGENTS.md)"
+if [[ -d "$HOME/.cursor/rules" ]]; then
+  for entry in "$HOME/.cursor/rules"/*; do
+    if is_ours "$entry"; then
+      rm -f "$entry"
+      log "migrate: drop $entry (rules moved into skills)"
+    fi
+  done
+  rmdir "$HOME/.cursor/rules" 2>/dev/null || true
 fi
-# A rule removed from shared/rules leaves its per-file link dangling.
-for entry in "$HOME/.cursor/rules"/*.md; do
-  prune_stale_link "$entry"
-done
 
 # Claude-only files
 link "$ROOT/claude/settings.json" "$HOME/.claude/settings.json"
