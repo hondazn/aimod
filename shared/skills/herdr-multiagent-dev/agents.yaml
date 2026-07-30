@@ -1,0 +1,61 @@
+# herdr-multiagent-dev のユーザー全体設定（正本）
+# プロジェクト直下に agents.yaml がある場合はそちらが優先（プロジェクト上書き）。
+# 値は実測ベース（Herdr 0.7.4 / 2026-07-30、kojo ドッグフーディングで確認）。
+# 新しいマシン・CLI更新時は書き写さず実測して更新すること。
+agents:
+  cursor:
+    cmd: cursor-agent
+    model_flag: "--model"          # 候補は cursor-agent --list-models
+    default_model: composer-2.5
+    extra_args: ["--force"]        # 無人化（明示拒否以外のコマンド実行を許可）
+    credit_error_patterns:
+      - "usage limit"
+    interaction:
+      ready_delay_ms: 3000
+      enter_chaser: true           # bracketed paste 対策: 送信2秒後に enter 追撃
+      startup_gate_pattern: "Trust this workspace"
+      startup_keys: ["a"]          # --force では抑止されない Trust ダイアログ
+  codex:
+    cmd: codex
+    model_flag: "-m"
+    default_model: gpt-5.6-terra
+    extra_args: ["-a", "never", "-s", "workspace-write"]  # 承認UIを出さない+WS内書込
+    credit_error_patterns:
+      - "usage limit"
+      - "rate limit"
+    interaction:
+      ready_delay_ms: 5000         # 起動直後のプロンプト消失対策: idle 後さらに待つ
+      enter_chaser: true
+  claude-code:
+    cmd: claude
+    model_flag: "--model"
+    default_model: claude-opus-5
+    extra_args: ["--permission-mode", "acceptEdits"]
+    credit_error_patterns:
+      - "credit balance"
+      - "usage limit"
+    interaction:
+      ready_delay_ms: 3000
+      enter_chaser: false
+      startup_gate_pattern: "Do you trust the files in this folder"
+      startup_keys: ["enter"]
+
+roles:
+  # 先頭が主担当、以降フォールバック順。model 省略時は default_model。
+  # クロスレビュー原則: builder と reviewer は別ベンダーに保つこと。
+  planner:
+    - { agent: claude-code, model: claude-fable-5 }
+    - { agent: claude-code, model: claude-opus-5 }
+  plan-reviewer:
+    - { agent: codex, model: gpt-5.6-sol }
+    - { agent: claude-code, model: claude-opus-5 }
+  builder:
+    - { agent: cursor, model: cursor-grok-4.5-high }
+    - { agent: cursor, model: composer-2.5 }
+  reviewer:
+    - { agent: codex, model: gpt-5.6-sol }
+    - { agent: claude-code, model: claude-opus-5 }
+  fixer:
+    # builder と同系（同じ視点で直させ、判定は reviewer に残す）
+    - { agent: cursor, model: cursor-grok-4.5-high }
+    - { agent: cursor, model: composer-2.5 }

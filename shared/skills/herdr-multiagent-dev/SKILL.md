@@ -35,60 +35,45 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 - 軽い役割は安価なモデルに落とす（例: バックログ補充は sonnet）
 - 修正ループは fixer 1回→再レビュー→だめなら打ち切り。**「やめる判断」ができることが無人運用の品質担保**
 
-### エージェント・モデルの設定形式
+### エージェント・モデルの設定（正本: 同梱の `agents.yaml`）
 
-エージェント定義（CLI差分の吸収）と役割割当（誰がどのモデルでやるか）を分けて設定に持つ:
+割当の正本は**本スキルと同じディレクトリの [agents.yaml](agents.yaml)**（ユーザー全体設定。スキルと一緒に全ツールへ配布される）。プロジェクト直下に `agents.yaml` があればそちらを優先する（プロジェクト上書き）。
+
+形式は、エージェント定義（CLI差分の吸収）と役割割当（誰がどのモデルでやるか）の二層:
 
 ```yaml
 agents:
-  cursor:
-    cmd: cursor-agent
-    model_flag: "--model"        # 候補は cursor-agent --list-models
-    default_model: composer-2.5
-    extra_args: ["--force"]      # 無人化フラグ（プロファイル表参照）
-    credit_error_patterns: ["usage limit"]
-  codex:
-    cmd: codex
-    model_flag: "-m"
-    default_model: gpt-5.6-terra
-    extra_args: ["-a", "never", "-s", "workspace-write"]
-    credit_error_patterns: ["usage limit", "rate limit"]
-  claude-code:
-    cmd: claude
-    model_flag: "--model"
-    default_model: claude-opus-5
-    extra_args: ["--permission-mode", "acceptEdits"]
-    credit_error_patterns: ["credit balance", "usage limit"]
-
+  <名前>:
+    cmd: <CLI実行名>
+    model_flag: "--model" | "-m"
+    default_model: <モデル名>
+    extra_args: [<無人化フラグ>]          # プロファイル表参照
+    credit_error_patterns: [<パターン>]   # フォールバック発動の判定
+    interaction:                          # 操縦の癖（プロファイル表と対応）
+      ready_delay_ms: <ms>
+      enter_chaser: true|false
+      startup_gate_pattern: <起動ゲートの正規表現>
+      startup_keys: [<送信キー>]
 roles:
-  # 先頭が主担当、以降フォールバック順。model 省略時は default_model
-  planner:
-    - { agent: claude-code, model: claude-fable-5 }
-    - { agent: claude-code, model: claude-opus-5 }
-  builder:
-    - { agent: cursor, model: cursor-grok-4.5-high }
-    - { agent: cursor, model: composer-2.5 }
-  reviewer:
-    - { agent: codex, model: gpt-5.6-sol }
-    - { agent: claude-code, model: claude-opus-5 }
+  <役割>:   # 先頭が主担当、以降フォールバック順
+    - { agent: <名前>, model: <上書きモデル> }   # model 省略時は default_model
 ```
 
-起動 argv への展開規則: `<cmd> <model_flag> <model> <extra_args...>`。例えば builder の主担当は:
+起動 argv への展開規則: `<cmd> <model_flag> <model> <extra_args...>`。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
 
 ```bash
 herdr agent start builder --cwd <dir> --split right --no-focus -- \
   cursor-agent --model cursor-grok-4.5-high --force
 ```
 
-台帳（ログ）には「どの役割をどのエージェント+モデルが担ったか」を毎回記録する — エージェント別成功率の比較データになり、割当の見直し根拠になる。起動ゲート・ready delay 等の癖（プロファイル表）も同じ設定に `ready_delay_ms` / `enter_chaser` / `startup_gate_pattern` / `startup_keys` として持たせると操縦ループを共通化できる。
+台帳（ログ）には「どの役割をどのエージェント+モデルが担ったか」を毎回記録する — エージェント別成功率の比較データになり、割当の見直し根拠になる。
 
-### 環境ごとのカスタマイズ
+### 設定のカスタマイズ
 
-このスキルが定めるのは**形式と展開規則だけ**。値の正本は各プロジェクト（環境）に置く設定ファイル（例: リポジトリ直下の `agents.yaml`）であり、上の YAML は一例にすぎない。
-
-- 環境依存なのは主に `agents` 節: インストール済み CLI、利用可能モデル、クレジット状況、無人化フラグの挙動はマシンごとに異なる。`roles` は開発方針なので環境間で揃えてよい
-- 新しい環境では書き写さずに**実測して埋める**: 各 CLI の存在と版、モデル候補（`cursor-agent --list-models` 等）、無人化フラグ・起動ゲートの実挙動
-- 設定を複数環境で共有するリポジトリなら、共通の既定 + ローカル上書き（例: `agents.local.yaml` を gitignore して後勝ちマージ）の二層にする — 単一環境なら1ファイル直編集で十分
+- **割当や既定モデルを変えるときはユーザー全体設定（同梱の `agents.yaml`）を編集する**。1箇所の編集が全プロジェクトに効く
+- 特定プロジェクトだけ割当を変えたい場合のみ、そのリポジトリ直下に `agents.yaml` を置いて上書きする（プロジェクト > ユーザー全体）。上書きは**ファイル全体の置換**（キー単位のマージはしない）— プロジェクト側にも `agents` と `roles` を完全に書くこと
+- 環境依存なのは主に `agents` 節: インストール済み CLI、利用可能モデル、クレジット状況、無人化フラグの挙動はマシンごとに異なる。`roles` は開発方針なのでマシン間で揃えてよい
+- 新しいマシン・CLI更新時は値を書き写さずに**実測して更新する**: 各 CLI の存在と版、モデル候補（`cursor-agent --list-models` 等）、無人化フラグ・起動ゲートの実挙動
 
 ## セッションライフサイクル
 
