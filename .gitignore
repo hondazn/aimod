@@ -2,3 +2,4 @@
 .worktrees/
 shared/skills/*-workspace/
 shared/skills/slack-triage/
+shared/skills/*/agents.local.yaml
