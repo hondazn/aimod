@@ -35,6 +35,53 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 - 軽い役割は安価なモデルに落とす（例: バックログ補充は sonnet）
 - 修正ループは fixer 1回→再レビュー→だめなら打ち切り。**「やめる判断」ができることが無人運用の品質担保**
 
+### エージェント・モデルの設定形式
+
+エージェント定義（CLI差分の吸収）と役割割当（誰がどのモデルでやるか）を分けて設定に持つ:
+
+```yaml
+agents:
+  cursor:
+    cmd: cursor-agent
+    model_flag: "--model"        # 候補は cursor-agent --list-models
+    default_model: composer-2.5
+    extra_args: ["--force"]      # 無人化フラグ（プロファイル表参照）
+    credit_error_patterns: ["usage limit"]
+  codex:
+    cmd: codex
+    model_flag: "-m"
+    default_model: gpt-5.6-terra
+    extra_args: ["-a", "never", "-s", "workspace-write"]
+    credit_error_patterns: ["usage limit", "rate limit"]
+  claude-code:
+    cmd: claude
+    model_flag: "--model"
+    default_model: claude-opus-5
+    extra_args: ["--permission-mode", "acceptEdits"]
+    credit_error_patterns: ["credit balance", "usage limit"]
+
+roles:
+  # 先頭が主担当、以降フォールバック順。model 省略時は default_model
+  planner:
+    - { agent: claude-code, model: claude-fable-5 }
+    - { agent: claude-code, model: claude-opus-5 }
+  builder:
+    - { agent: cursor, model: cursor-grok-4.5-high }
+    - { agent: cursor, model: composer-2.5 }
+  reviewer:
+    - { agent: codex, model: gpt-5.6-sol }
+    - { agent: claude-code, model: claude-opus-5 }
+```
+
+起動 argv への展開規則: `<cmd> <model_flag> <model> <extra_args...>`。例えば builder の主担当は:
+
+```bash
+herdr agent start builder --cwd <dir> --split right --no-focus -- \
+  cursor-agent --model cursor-grok-4.5-high --force
+```
+
+台帳（ログ）には「どの役割をどのエージェント+モデルが担ったか」を毎回記録する — エージェント別成功率の比較データになり、割当の見直し根拠になる。起動ゲート・ready delay 等の癖（プロファイル表）も同じ設定に `ready_delay_ms` / `enter_chaser` / `startup_gate_pattern` / `startup_keys` として持たせると操縦ループを共通化できる。
+
 ## セッションライフサイクル
 
 1セッション = 起動→送信→完了→回収→片付け。各段に検証を挟む。
