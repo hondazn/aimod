@@ -31,9 +31,24 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 | reviewer | builder と別エージェント（codex 等） | fatal 問題 + 受け入れ条件の未達のみ。スタイル指摘禁止 |
 | fixer | builder と同系 | 不合格時の修正。**1回だけ** |
 
+パイプラインの制御フロー（分岐と終了条件はこの図が正本。fixer 後の不合格は無条件で打ち切り）:
+
+```mermaid
+flowchart TD
+    P[planner: PLAN.md] --> PR[plan-reviewer]
+    PR -->|不合格| P
+    PR -->|合格| B[builder: 実装 + 自己検証]
+    B --> R[reviewer: fatal + 受け入れ条件のみ]
+    R -->|合格| DONE[回収・片付け・台帳記録]
+    R -->|不合格| F[fixer: 修正 1回だけ]
+    F --> R2[再レビュー]
+    R2 -->|合格| DONE
+    R2 -->|不合格| ABORT[打ち切り: ログ退避・片付けの上<br/>失敗として台帳記録]
+```
+
 - 役割→「エージェント+モデル」の割当リストを設定に持ち、先頭が主担当・以降フォールバック。クレジット系エラー（`credit balance` / `usage limit` / `rate limit`）を検出したら次候補で再実行
 - 軽い役割は安価なモデルに落とす（例: バックログ補充は sonnet）
-- 修正ループは fixer 1回→再レビュー→だめなら打ち切り。**「やめる判断」ができることが無人運用の品質担保**
+- **「やめる判断」ができることが無人運用の品質担保**。打ち切りは失敗ではなく正常な終了経路として台帳に記録する
 
 ### エージェント・モデルの設定（正本: 同梱の `agents.yaml`）
 
@@ -101,6 +116,34 @@ herdr pane run <pane_id> "<prompt>"
 herdr agent read <name> --source recent-unwrapped --lines 200
 herdr pane close <pane_id>   # 失敗時はログ退避後に閉じる
 ```
+
+防御層を含めた制御フロー（分岐と終了条件はこの図が正本）:
+
+```mermaid
+flowchart TD
+    ST[agent start] --> W1[初回 idle 待ち<br/>タイムアウト付き 例: 60秒]
+    W1 -->|タイムアウト = 起動失敗| FC
+    W1 -->|idle| G{起動ゲート表示?}
+    G -->|あり| K[startup_keys 送信] --> D[ready delay]
+    G -->|なし| D
+    D --> S[プロンプト送信<br/>必要なら enter 追撃]
+    S --> V{受理検証: 1秒×5回<br/>working/blocked へ遷移?}
+    V -->|遷移せず| RS{enter 再送<br/>3セット目?}
+    RS -->|いいえ| V
+    RS -->|はい| TH[失敗として throw]
+    V -->|遷移| SET[settled 待ち<br/>タイムボックス付き]
+    SET -->|blocked 検知| DB{6秒後に再取得<br/>まだ blocked?}
+    DB -->|いいえ = 偽陽性| SET
+    DB -->|はい| BLK[blocked 確定として対処<br/>例: 既知ダイアログへキー送信]
+    BLK -->|対処できた| SET
+    BLK -->|対処不能| FC
+    SET -->|idle/done| RC[回収 → pane close]
+    SET -->|タイムボックス超過| TO[打ち切りとして記録]
+    TH --> FC[失敗時も必ず回収:<br/>ログ退避 → pane close]
+    TO --> FC
+```
+
+成功・失敗どちらの終端でも回収と pane close を必ず通す。失敗経路の回収を省くとペインが残留し、原因調査に必要なログも失われる。
 
 防御層の実測根拠（これを省くと無反応セッションの黙殺や誤判定が起きる）:
 
