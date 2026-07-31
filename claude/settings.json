@@ -159,7 +159,7 @@
       ]
     }
   },
-  "effortLevel": "low",
+  "effortLevel": "high",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "autoCompactEnabled": true,
