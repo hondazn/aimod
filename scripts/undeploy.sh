@@ -14,6 +14,11 @@ unlink_if_ours() {
   fi
   local target
   target="$(readlink -f "$dest" || true)"
+  if [[ "$target" != "$ROOT" && "$target" != "$ROOT"/* ]]; then
+    # readlink -f refuses to resolve when an intermediate directory of the
+    # target is gone; fall back to the raw link text (always absolute in aimod).
+    target="$(readlink "$dest")"
+  fi
   if [[ "$target" == "$ROOT" || "$target" == "$ROOT"/* ]]; then
     rm -f "$dest"
     log "removed $dest"
