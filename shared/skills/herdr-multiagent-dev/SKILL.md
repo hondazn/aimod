@@ -99,17 +99,19 @@ herdr agent start builder --cwd <dir> --split right --no-focus -- \
 
 1セッション = 起動→送信→完了→回収→片付け。各段に検証を挟む。
 
-以下のコマンド列は Herdr 0.7.4 実測時の構文（`agent start ... -- <cmd...>` / `agent wait --status`）。herdr スキルが示す新しい構文（`--kind` / `--until`）とはフラグが異なるため、**実行前に必ずインストール済みバイナリの help で現行構文を確認する**（正本はバイナリ）。手順の骨格と防御層はどの版でも変わらない:
+以下のコマンド列は Herdr 0.7.5 実測時の構文（2026-08-02）。0.7.5 ではペインとエージェントが独立し、先にペインを作ってから起動する2段構成になった。バージョンで構文が変わるため、**実行前に必ずインストール済みバイナリの help で現行構文を確認する**（正本はバイナリ）。手順の骨格と防御層はどの版でも変わらない:
 
 ```bash
-# 1. 起動（無人化フラグはプロファイル表を参照）
-herdr agent start <name> --cwd <dir> --split right --no-focus -- <cmd> <flags...>
-# 2. 初回 idle まで待つ
-herdr agent wait <name> --status idle --timeout 60000
+# 1. ペイン作成（応答 JSON の .result.pane.pane_id を次で使う）
+herdr pane split --current --direction right --cwd <dir> --no-focus
+# 2. 起動（--kind が実行ファイルを決めるため native args に実行ファイル名は含めない。
+#    agent start は入力可能になるまで待ってから返る。失敗時は pane close で片付ける）
+herdr agent start <name> --kind <kind> --pane <pane_id> --timeout 60000 -- <flags...>
 # 3. 起動ゲート処理: 画面をポーリングし、信頼確認ダイアログが出ていたらキー送信
 herdr agent read <name> --source recent-unwrapped --lines 40   # パターン照合→ send-keys
-# 4. ready delay を置いてからプロンプト送信（+ 必要なら enter 追撃）
-herdr pane run <pane_id> "<prompt>"
+#    （起動直後は recent-unwrapped が空を返すことがある → --source visible にフォールバック）
+# 4. ready delay を置いてからプロンプト送信（+ プロファイル表に従い enter 追撃）
+herdr agent prompt <name> "<prompt>" --wait --timeout <ms>
 # 5. working への遷移を検証（受理確認）
 # 6. settled 待ち（idle/done = 完了、blocked はデバウンス後に確定）
 # 7. 回収して片付け
@@ -149,15 +151,16 @@ flowchart TD
 
 - **受理検証（ensureWorking）**: 送信後 1秒×5回 working/blocked への遷移をポーリング。遷移しなければ enter を再送、3セット試してだめなら失敗として throw。「送ったのに何も起きない」の黙殺防止
 - **blocked デバウンス**: Herdr の blocked 検知には偽陽性がある。検知後 6秒おいて再取得し、まだ blocked なら確定
+- **settled 待ちの早期リターン**: `agent wait`（settled 待ち）は作業中エージェントの短時間の状態揺れで早期リターンすることがある（0.7.5 / cursor で実測。blocked と返しつつタイトルは Working のまま等）。完了確定は「idle 検出 → 6〜8秒おいて再取得してまだ idle」のデバウンス付きポーリングで行う
 - **タイムボックス**: セッション待ちに上限（例: 2時間）を必ず設定。超過は打ち切りとして記録
-- `agent prompt --wait` を持つ版ではそれを優先してよい（atomic 送信 + stall 検出内蔵）。ただし起動ゲートと起動直後の入力消失はエージェント側 TUI の癖なので、送信手段によらず下表の対処が必要
+- `agent prompt --wait` を持つ版ではそれを優先してよい（atomic 送信 + stall 検出内蔵）。ただし起動ゲートと起動直後の入力消失、**cursor の Enter 未消費**はエージェント側 TUI の癖なので、送信手段によらず下表の対処が必要
 
-## エージェント別プロファイル（実測: Herdr 0.7.4 / 2026-07-30）
+## エージェント別プロファイル（実測: Herdr 0.7.5 / 2026-08-02。claude 行のみ 0.7.4 / 2026-07-30 実測のまま）
 
 | エージェント | 無人化フラグ | 起動ゲート | 送信の癖 |
 |---|---|---|---|
-| cursor-agent | `--force` | Workspace Trust ダイアログ。**`--force` では抑止されない** → キー `a` を送信 | bracketed paste で入力ボックスに載るだけ → **2秒後に enter 追撃が必須**。ready delay 3秒 |
-| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後さらに 5秒待って送信。enter 追撃有効 |
+| cursor-agent | `--force` | Workspace Trust ダイアログ。**`--force` では抑止されない** → キー `a` を送信（信頼済みワークスペースでは出ない） | **0.7.5 の atomic な `agent prompt` でも Enter は消費されない**（入力ボックスに Pasted text として残り idle のまま）→ 送信 3〜4 秒後に `agent send-keys <name> enter` の追撃が必須。ready delay 3秒 |
+| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後（0.7.5 では `agent start` の復帰後）さらに 5秒待って送信。0.7.5 の `agent prompt` なら enter 追撃は不要（実測3セッション連続で受理） |
 | claude | `--permission-mode acceptEdits` | `Do you trust the files in this folder` → enter で既定選択 | ready delay 3秒。追撃不要 |
 
 - モデル指定フラグ: cursor `--model`（候補は `cursor-agent --list-models`）/ codex `-m` / claude `--model`
