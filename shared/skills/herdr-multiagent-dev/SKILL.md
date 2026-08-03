@@ -160,7 +160,7 @@ flowchart TD
 | エージェント | 無人化フラグ | 起動ゲート | 送信の癖 |
 |---|---|---|---|
 | cursor-agent | `--force` | Workspace Trust ダイアログ。**`--force` では抑止されない** → キー `a` を送信（信頼済みワークスペースでは出ない） | **0.7.5 の atomic な `agent prompt` でも Enter は消費されない**（入力ボックスに Pasted text として残り idle のまま）→ 送信 3〜4 秒後に `agent send-keys <name> enter` の追撃が必須。ready delay 3秒 |
-| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後（0.7.5 では `agent start` の復帰後）さらに 5秒待って送信。0.7.5 の `agent prompt` なら enter 追撃は不要（実測3セッション連続で受理） |
+| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後（0.7.5 では `agent start` の復帰後）さらに 5秒待って送信。0.7.5 の `agent prompt` なら enter 追撃は不要（実測3セッション連続で受理）。**`agent prompt --wait` は受理されていても状態遷移を検知できず timeout エラーを返すことが多い**（2026-08-02 実測: 1セッション内でほぼ毎回）→ --wait の結果を成否判定に使わず、送信後に working 遷移の受理ポーリング（1秒×5回）で確認する |
 | claude | `--permission-mode acceptEdits` | `Do you trust the files in this folder` → enter で既定選択 | ready delay 3秒。追撃不要 |
 
 - モデル指定フラグ: cursor `--model`（候補は `cursor-agent --list-models`）/ codex `-m` / claude `--model`
