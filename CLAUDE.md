@@ -37,11 +37,11 @@ tests/
 
 **設計知識の置き場**: タスク別ルールは rules という別カテゴリを持たず、すべてスキルとして配る。常時ロードを避け、3ツール共通のオンデマンド機構（スキル一覧の description で発火）に一本化するため。`instructions.md` には汎用ルールと、スキル適用を促す「タスク別スキル」節だけを置く。設計・実装系スキルの分担:
 
-- `seiren` — 開発ループ（探索→モデル化→TDD→学習）のプロセスハブ。各段階を専門スキルへ委譲
+- `code-perfection` — 開発ループ（探索→モデル化→TDD→学習）のプロセスハブ。各段階を専門スキルへ委譲
 - `coding-standards` — コードを書く最中の実装規律（認知負荷閾値・CQS・整理テクニック等）。あらゆるコード変更に適用
 - `design-principles` — 結合・凝集・構造投資の経済学という判断理論。コード以外の構造判断にも使う
 - `design-code` / `understand-problem` / `devise-plan` — 設計・問題定義・解法戦略のプロセス
-- 参照方向は一方向: seiren → (design-code, coding-standards) → design-principles
+- 参照方向は一方向: code-perfection → (design-code, coding-standards) → design-principles
 
 **Cursor へのグローバル指示は `~/AGENTS.md` 経由で配る。** Cursor はワークスペースから上へ辿って `AGENTS.md` を拾い、`~` はすべてのリポジトリの祖先なので、ここに置けば全プロジェクトに効く。
 
