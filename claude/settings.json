@@ -79,28 +79,6 @@
     "additionalDirectories": []
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/enforce-worktree.sh",
-            "if": "Bash(git checkout *)"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/enforce-worktree.sh",
-            "if": "Bash(git switch *)"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/enforce-worktree.sh",
-            "if": "Bash(git branch *)"
-          }
-        ]
-      }
-    ],
     "Notification": [
       {
         "matcher": "",
@@ -150,6 +128,9 @@
         "repo": "cloudflare/skills"
       }
     }
+  },
+  "worktree": {
+    "bgIsolation": "none"
   },
   "language": "Japanese",
   "sandbox": {

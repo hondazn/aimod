@@ -99,7 +99,21 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 
 Codex は Claude のような command-based status line をサポートせず、組み込み項目 ID の配列を `tui.status_line` に設定する。`deploy.sh` はこのキーだけを追加・置換する。`undeploy.sh` は現在値が `codex/statusline.toml` と完全一致する場合だけ削除し、ユーザーが変更した値は残す。
 
-管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`
+管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`, `~/.claude/hooks/`
+
+### worktree の強制は本体設定を使い、既定は無効
+
+aimod は worktree 関連のフックを配らない。Claude Code 本体が同じ目的の設定 `worktree.bgIsolation` を持つため。値は `worktree` と `none` で、**本体の既定は `worktree`**（バックグラウンドセッションの Edit/Write を、EnterWorktree を呼ぶまで主チェックアウトに対して拒否する）。
+
+`claude/settings.json` で全体を `none` に倒し、**worktree を使いたいプロジェクトだけ opt-in** する:
+
+```json
+{ "worktree": { "bgIsolation": "worktree" } }   ← 該当プロジェクトの .claude/settings.json
+```
+
+`bgIsolation` は `hooks` や `skillOverrides` と同じメイン設定スキーマにあり、統合設定 `co()` から読まれる（`language` / `enabledPlugins` と同じ経路）ため、ユーザ設定に置けて、プロジェクト設定が上書きする。環境変数 `CLAUDE_BG_ISOLATION=worktree|none` が最優先。同じ `worktree` オブジェクトに `baseRef` / `symlinkDirectories` / `sparsePaths` も入る。
+
+出典: claude バイナリ 2.1.222 の設定スキーマ（description 原文: "Isolation mode for background sessions in this repo. 'worktree' (default) blocks Edit/Write in the main checkout until EnterWorktree is called. 'none' lets background jobs edit the working copy directly."）と読み取り関数（`process.env.CLAUDE_BG_ISOLATION` → セッション状態 → `co().worktree?.bgIsolation` の順）。**対話セッションでの編集やブランチ作成は対象外**。スキーマからの読み取りであり、実際にバックグラウンドジョブを走らせての動作確認は未実施。バージョン更新時に再確認すること。
 
 ## スキル・エージェントの追加
 
