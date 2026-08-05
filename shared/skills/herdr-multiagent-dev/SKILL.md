@@ -31,9 +31,24 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 | reviewer | builder と別エージェント（codex 等） | fatal 問題 + 受け入れ条件の未達のみ。スタイル指摘禁止 |
 | fixer | builder と同系 | 不合格時の修正。**1回だけ** |
 
+パイプラインの制御フロー（分岐と終了条件はこの図が正本。fixer 後の不合格は無条件で打ち切り）:
+
+```mermaid
+flowchart TD
+    P[planner: PLAN.md] --> PR[plan-reviewer]
+    PR -->|不合格| P
+    PR -->|合格| B[builder: 実装 + 自己検証]
+    B --> R[reviewer: fatal + 受け入れ条件のみ]
+    R -->|合格| DONE[回収・片付け・台帳記録]
+    R -->|不合格| F[fixer: 修正 1回だけ]
+    F --> R2[再レビュー]
+    R2 -->|合格| DONE
+    R2 -->|不合格| ABORT[打ち切り: ログ退避・片付けの上<br/>失敗として台帳記録]
+```
+
 - 役割→「エージェント+モデル」の割当リストを設定に持ち、先頭が主担当・以降フォールバック。クレジット系エラー（`credit balance` / `usage limit` / `rate limit`）を検出したら次候補で再実行
 - 軽い役割は安価なモデルに落とす（例: バックログ補充は sonnet）
-- 修正ループは fixer 1回→再レビュー→だめなら打ち切り。**「やめる判断」ができることが無人運用の品質担保**
+- **「やめる判断」ができることが無人運用の品質担保**。打ち切りは失敗ではなく正常な終了経路として台帳に記録する
 
 ### エージェント・モデルの設定（正本: 同梱の `agents.yaml`）
 
@@ -84,17 +99,19 @@ herdr agent start builder --cwd <dir> --split right --no-focus -- \
 
 1セッション = 起動→送信→完了→回収→片付け。各段に検証を挟む。
 
-以下のコマンド列は Herdr 0.7.4 実測時の構文（`agent start ... -- <cmd...>` / `agent wait --status`）。herdr スキルが示す新しい構文（`--kind` / `--until`）とはフラグが異なるため、**実行前に必ずインストール済みバイナリの help で現行構文を確認する**（正本はバイナリ）。手順の骨格と防御層はどの版でも変わらない:
+以下のコマンド列は Herdr 0.7.5 実測時の構文（2026-08-02）。0.7.5 ではペインとエージェントが独立し、先にペインを作ってから起動する2段構成になった。バージョンで構文が変わるため、**実行前に必ずインストール済みバイナリの help で現行構文を確認する**（正本はバイナリ）。手順の骨格と防御層はどの版でも変わらない:
 
 ```bash
-# 1. 起動（無人化フラグはプロファイル表を参照）
-herdr agent start <name> --cwd <dir> --split right --no-focus -- <cmd> <flags...>
-# 2. 初回 idle まで待つ
-herdr agent wait <name> --status idle --timeout 60000
+# 1. ペイン作成（応答 JSON の .result.pane.pane_id を次で使う）
+herdr pane split --current --direction right --cwd <dir> --no-focus
+# 2. 起動（--kind が実行ファイルを決めるため native args に実行ファイル名は含めない。
+#    agent start は入力可能になるまで待ってから返る。失敗時は pane close で片付ける）
+herdr agent start <name> --kind <kind> --pane <pane_id> --timeout 60000 -- <flags...>
 # 3. 起動ゲート処理: 画面をポーリングし、信頼確認ダイアログが出ていたらキー送信
 herdr agent read <name> --source recent-unwrapped --lines 40   # パターン照合→ send-keys
-# 4. ready delay を置いてからプロンプト送信（+ 必要なら enter 追撃）
-herdr pane run <pane_id> "<prompt>"
+#    （起動直後は recent-unwrapped が空を返すことがある → --source visible にフォールバック）
+# 4. ready delay を置いてからプロンプト送信（+ プロファイル表に従い enter 追撃）
+herdr agent prompt <name> "<prompt>" --wait --timeout <ms>
 # 5. working への遷移を検証（受理確認）
 # 6. settled 待ち（idle/done = 完了、blocked はデバウンス後に確定）
 # 7. 回収して片付け
@@ -102,19 +119,48 @@ herdr agent read <name> --source recent-unwrapped --lines 200
 herdr pane close <pane_id>   # 失敗時はログ退避後に閉じる
 ```
 
+防御層を含めた制御フロー（分岐と終了条件はこの図が正本）:
+
+```mermaid
+flowchart TD
+    ST[agent start] --> W1[初回 idle 待ち<br/>タイムアウト付き 例: 60秒]
+    W1 -->|タイムアウト = 起動失敗| FC
+    W1 -->|idle| G{起動ゲート表示?}
+    G -->|あり| K[startup_keys 送信] --> D[ready delay]
+    G -->|なし| D
+    D --> S[プロンプト送信<br/>必要なら enter 追撃]
+    S --> V{受理検証: 1秒×5回<br/>working/blocked へ遷移?}
+    V -->|遷移せず| RS{enter 再送<br/>3セット目?}
+    RS -->|いいえ| V
+    RS -->|はい| TH[失敗として throw]
+    V -->|遷移| SET[settled 待ち<br/>タイムボックス付き]
+    SET -->|blocked 検知| DB{6秒後に再取得<br/>まだ blocked?}
+    DB -->|いいえ = 偽陽性| SET
+    DB -->|はい| BLK[blocked 確定として対処<br/>例: 既知ダイアログへキー送信]
+    BLK -->|対処できた| SET
+    BLK -->|対処不能| FC
+    SET -->|idle/done| RC[回収 → pane close]
+    SET -->|タイムボックス超過| TO[打ち切りとして記録]
+    TH --> FC[失敗時も必ず回収:<br/>ログ退避 → pane close]
+    TO --> FC
+```
+
+成功・失敗どちらの終端でも回収と pane close を必ず通す。失敗経路の回収を省くとペインが残留し、原因調査に必要なログも失われる。
+
 防御層の実測根拠（これを省くと無反応セッションの黙殺や誤判定が起きる）:
 
 - **受理検証（ensureWorking）**: 送信後 1秒×5回 working/blocked への遷移をポーリング。遷移しなければ enter を再送、3セット試してだめなら失敗として throw。「送ったのに何も起きない」の黙殺防止
 - **blocked デバウンス**: Herdr の blocked 検知には偽陽性がある。検知後 6秒おいて再取得し、まだ blocked なら確定
+- **settled 待ちの早期リターン**: `agent wait`（settled 待ち）は作業中エージェントの短時間の状態揺れで早期リターンすることがある（0.7.5 / cursor で実測。blocked と返しつつタイトルは Working のまま等）。完了確定は「idle 検出 → 6〜8秒おいて再取得してまだ idle」のデバウンス付きポーリングで行う
 - **タイムボックス**: セッション待ちに上限（例: 2時間）を必ず設定。超過は打ち切りとして記録
-- `agent prompt --wait` を持つ版ではそれを優先してよい（atomic 送信 + stall 検出内蔵）。ただし起動ゲートと起動直後の入力消失はエージェント側 TUI の癖なので、送信手段によらず下表の対処が必要
+- `agent prompt --wait` を持つ版ではそれを優先してよい（atomic 送信 + stall 検出内蔵）。ただし起動ゲートと起動直後の入力消失、**cursor の Enter 未消費**はエージェント側 TUI の癖なので、送信手段によらず下表の対処が必要
 
-## エージェント別プロファイル（実測: Herdr 0.7.4 / 2026-07-30）
+## エージェント別プロファイル（実測: Herdr 0.7.5 / 2026-08-02。claude 行のみ 0.7.4 / 2026-07-30 実測のまま）
 
 | エージェント | 無人化フラグ | 起動ゲート | 送信の癖 |
 |---|---|---|---|
-| cursor-agent | `--force` | Workspace Trust ダイアログ。**`--force` では抑止されない** → キー `a` を送信 | bracketed paste で入力ボックスに載るだけ → **2秒後に enter 追撃が必須**。ready delay 3秒 |
-| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後さらに 5秒待って送信。enter 追撃有効 |
+| cursor-agent | `--force` | Workspace Trust ダイアログ。**`--force` では抑止されない** → キー `a` を送信（信頼済みワークスペースでは出ない） | **0.7.5 の atomic な `agent prompt` でも Enter は消費されない**（入力ボックスに Pasted text として残り idle のまま）→ 送信 3〜4 秒後に `agent send-keys <name> enter` の追撃が必須。ready delay 3秒 |
+| codex | `-a never -s workspace-write` | なし | **TUI 起動直後に送ったプロンプトは消える** → idle 判定後（0.7.5 では `agent start` の復帰後）さらに 5秒待って送信。0.7.5 の `agent prompt` なら enter 追撃は不要（実測3セッション連続で受理）。**`agent prompt --wait` は受理されていても状態遷移を検知できず timeout エラーを返すことが多い**（2026-08-02 実測: 1セッション内でほぼ毎回）→ --wait の結果を成否判定に使わず、送信後に working 遷移の受理ポーリング（1秒×5回）で確認する |
 | claude | `--permission-mode acceptEdits` | `Do you trust the files in this folder` → enter で既定選択 | ready delay 3秒。追撃不要 |
 
 - モデル指定フラグ: cursor `--model`（候補は `cursor-agent --list-models`）/ codex `-m` / claude `--model`
@@ -154,6 +200,7 @@ const VERDICT_LINE = /^[•\-*\s]*(不合格|合格)[。．\s]*$/;
 | 症状 | 原因と対処 |
 |---|---|
 | 送ったのに何も起きない | TUI が入力を黙殺。working 遷移を検証し、来なければ enter 再送。3回でエラー化 |
+| `agent start` が invalid_agent_name で失敗 | エージェント名は `[a-z][a-z0-9_-]` の**32文字以内**（herdr の制約）。日付+アプリ名などの連結で超えやすい。直列実行なら名前からコンテキスト固有部を落として再利用してよい（同名残骸は起動前 close で回収） |
 | blocked と出たが動いている | 検知の偽陽性。6秒後に再確認してから対処 |
 | 合否が常に同じ値になる | プロンプトのエコーを拾っている。独立行契約 + 末尾から走査に切替 |
 | 長い出力が途中から読めない | alternate screen 落ち。herdr スキルのファイル出力フォールバックを使う |
