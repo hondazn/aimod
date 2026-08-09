@@ -18,7 +18,7 @@ code-perfection の開発ループ（探索→モデル化→TDD→学習）を�
 ## When to Use
 
 - 複数ユースケースの開発を、code-perfection の規律（TDD・学習して戻る）を保ったまま、実装とレビューを別エージェントに分担して進めたい
-- **使わない**: 自分1人で開発するなら code-perfection を直接使う。役割分担だけ欲しくループ規律が不要なら herdr-multiagent-dev を直接使う。単発の調査委譲は codex-investigate
+- **使わない**: 自分1人で開発するなら code-perfection を直接使う。役割分担だけ欲しくループ規律が不要なら herdr-multiagent-dev を直接使う。
 
 ## 全体フロー
 
