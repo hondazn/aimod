@@ -442,7 +442,7 @@ Closes #8
 
 - [ ] `description` のトリガー文言と `<example>` ブロックの記載内容
 - [ ] JSON `category` 値セットが既存 reviewer と衝突しないか
-- [ ] `natural-writing` / `redundancy-check` スキルとの責務重複がないか
+- [ ] `natural-writing` スキルとの責務重複がないか
 - [ ] 校正粒度（nit の閾値）が他 reviewer と揃っているか
 ```
 
