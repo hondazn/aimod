@@ -61,6 +61,7 @@ agents:
   <名前>:
     cmd: <CLI実行名>
     model_flag: "--model" | "-m"
+    effort_args: [<argvテンプレート>]     # 省略可。{effort} を roles の effort 値で置換
     default_model: <モデル名>
     extra_args: [<無人化フラグ>]          # プロファイル表参照
     credit_error_patterns: [<パターン>]   # フォールバック発動の判定
@@ -71,10 +72,10 @@ agents:
       startup_keys: [<送信キー>]
 roles:
   <役割>:   # 先頭が主担当、以降フォールバック順
-    - { agent: <名前>, model: <上書きモデル> }   # model 省略時は default_model
+    - { agent: <名前>, model: <上書きモデル>, effort: <推論努力> }   # model 省略時は default_model。effort は任意
 ```
 
-起動 argv への展開規則: `<cmd> <model_flag> <model> <extra_args...>`。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
+起動 argv への展開規則: `<cmd> <model_flag> <model> [<effort_args...>] <extra_args...>`。effort_args は roles のエントリに `effort` がある場合だけ挿入し、`{effort}` をその値で置換する（effort_args を持たないエージェントへの effort 指定は無視。cursor は effort をモデル名で表現する — プロファイル表参照）。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
 
 ```bash
 herdr agent start builder --cwd <dir> --split right --no-focus -- \
@@ -164,6 +165,7 @@ flowchart TD
 | claude | `--permission-mode acceptEdits` | `Do you trust the files in this folder` → enter で既定選択 | ready delay 3秒。追撃不要 |
 
 - モデル指定フラグ: cursor `--model`（候補は `cursor-agent --list-models`）/ codex `-m` / claude `--model`
+- effort 指定（実測 2026-08-09）: claude `--effort low|medium|high|xhigh|max`（2.1.226）/ codex `-c model_reasoning_effort=<値>`（0.147.0。high のみ実測）/ cursor は独立フラグ無し — モデル名（`cursor-grok-4.5-high` 等）か bracket 構文（`'claude-opus-4-8[effort=high]'`）で表現
 - codex は状態行に使用量残量（`weekly N% left`）を表示する — フォールバック判定の補助材料
 - codex はサンドボックス外コマンドで本物の blocked（承認UI）になる。無人運用では `-a never` が必須
 - **バージョン更新時は再測定すること**（癖は非公開仕様であり変わりうる）

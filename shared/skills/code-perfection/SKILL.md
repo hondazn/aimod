@@ -50,8 +50,8 @@ flowchart TD
 |------|-----------|
 | 探索 | `/understand-problem`（問題定義）、`/devise-plan`（解法戦略） |
 | モデル化・仮設計 | `/design-code`（構造・型・データフロー・状態・エラー境界） |
-| Red-Green-Refactor | `coding-standards`（TDD・テスト・実装の規律） |
-| 学習の判定 | `design-principles`（結合・整理の経済学に基づく戻り先の判断） |
+| Red-Green-Refactor | `/coding-standards`（TDD・テスト・実装の規律） |
+| 学習の判定 | `/design-principles`（結合・整理の経済学に基づく戻り先の判断） |
 
 ## ループの運転
 

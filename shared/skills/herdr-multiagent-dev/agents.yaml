@@ -7,6 +7,7 @@ agents:
   cursor:
     cmd: cursor-agent
     model_flag: "--model"          # 候補は cursor-agent --list-models
+    # effort の独立フラグ無し → モデル名で表現（cursor-grok-4.5-high 等）。effort_args を定義しない
     default_model: composer-2.5
     extra_args: ["--force"]        # 無人化（明示拒否以外のコマンド実行を許可）
     credit_error_patterns:
@@ -19,6 +20,7 @@ agents:
   codex:
     cmd: codex
     model_flag: "-m"
+    effort_args: ["-c", "model_reasoning_effort={effort}"]  # high のみ実測（codex-cli 0.147.0）。他値は要実測
     default_model: gpt-5.6-terra
     extra_args: ["-a", "never", "-s", "workspace-write"]  # 承認UIを出さない+WS内書込
     # サンドボックスは外部プロセス起動やネットワークを遮断する。それに依存するテストは
@@ -32,6 +34,7 @@ agents:
   claude-code:
     cmd: claude
     model_flag: "--model"
+    effort_args: ["--effort", "{effort}"]  # 有効値: low/medium/high/xhigh/max（claude 2.1.226 --help）
     default_model: claude-opus-5
     extra_args: ["--permission-mode", "acceptEdits"]
     credit_error_patterns:
@@ -45,20 +48,25 @@ agents:
 
 roles:
   # 先頭が主担当、以降フォールバック順。model 省略時は default_model。
+  # effort は任意。effort_args を持つエージェントのみ有効（cursor はモデル名で表現する）。
   # クロスレビュー原則: builder と reviewer は別ベンダーに保つこと。
   planner:
-    - { agent: claude-code, model: claude-fable-5 }
-    - { agent: claude-code, model: claude-opus-5 }
+    - { agent: claude-code, model: claude-fable-5, effort: high }
+    - { agent: claude-code, model: claude-opus-5, effort: max }
   plan-reviewer:
-    - { agent: codex, model: gpt-5.6-sol }
-    - { agent: claude-code, model: claude-opus-5 }
+    - { agent: codex, model: gpt-5.6-sol, effort: high }
+    - { agent: claude-code, model: claude-opus-5, effort: max }
   builder:
     - { agent: cursor, model: cursor-grok-4.5-high }
     - { agent: cursor, model: composer-2.5 }
+    - { agent: codex, model: gpt-5.6-luna, effort: max }
+    - { agent: claude-code, model: claude-sonnet-5, effort: max }
   reviewer:
-    - { agent: codex, model: gpt-5.6-sol }
-    - { agent: claude-code, model: claude-opus-5 }
+    - { agent: codex, model: gpt-5.6-sol, effort: high }
+    - { agent: claude-code, model: claude-fable-5, effort: high }
   fixer:
     # builder と同系（同じ視点で直させ、判定は reviewer に残す）
     - { agent: cursor, model: cursor-grok-4.5-high }
     - { agent: cursor, model: composer-2.5 }
+    - { agent: codex, model: gpt-5.6-luna, effort: max }
+    - { agent: claude-code, model: claude-sonnet-5, effort: max }
