@@ -21,6 +21,8 @@ agents:
     model_flag: "-m"
     default_model: gpt-5.6-terra
     extra_args: ["-a", "never", "-s", "workspace-write"]  # 承認UIを出さない+WS内書込
+    # サンドボックスは外部プロセス起動やネットワークを遮断する。それに依存するテストは
+    # codex 環境でだけ落ちるため、レビュー契約で除外し、指揮者が自分の環境で実測して確定する。
     credit_error_patterns:
       - "usage limit"
       - "rate limit"
