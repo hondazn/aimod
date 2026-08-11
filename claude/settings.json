@@ -89,7 +89,22 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/home/zyun/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
     ]
+  },
+  "worktree": {
+    "bgIsolation": "none"
   },
   "statusLine": {
     "type": "command",
@@ -129,9 +144,6 @@
       }
     }
   },
-  "worktree": {
-    "bgIsolation": "none"
-  },
   "language": "Japanese",
   "sandbox": {
     "filesystem": {
@@ -140,7 +152,7 @@
       ]
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "autoCompactEnabled": true,
