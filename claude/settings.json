@@ -123,20 +123,12 @@
     "pr-review-toolkit@claude-plugins-official": true,
     "explanatory-output-style@claude-plugins-official": true,
     "hookify@claude-plugins-official": true,
-    "codex@openai-codex": true,
     "discord@claude-plugins-official": true,
     "cloudflare@claude-plugins-official": true,
     "cloudflare@cloudflare": true,
     "github@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
-    "openai-codex": {
-      "source": {
-        "source": "github",
-        "repo": "openai/codex-plugin-cc"
-      },
-      "autoUpdate": true
-    },
     "cloudflare": {
       "source": {
         "source": "github",
