@@ -39,6 +39,9 @@ unlink_if_ours "$HOME/.cursor/agents"
 unlink_if_ours "$HOME/.claude/skills"
 unlink_if_ours "$HOME/.cursor/skills"
 
+unlink_if_ours "$HOME/.config/opencode/AGENTS.md"
+unlink_if_ours "$HOME/.config/opencode/agents"
+
 unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 unlink_if_ours "$HOME/.cursor/rules"

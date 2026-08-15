@@ -1,5 +1,6 @@
 .claude/
 .worktrees/
+.opencode-agents/
 shared/skills/*-workspace/
 shared/skills/slack-triage/
 shared/skills/*/agents.local.yaml

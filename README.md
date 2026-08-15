@@ -1,14 +1,14 @@
 # aimod
 
-Claude Code・Cursor・Codex CLI の指示・agents・skills を一元管理し、ホームディレクトリへシンボリックリンクでデプロイする。
+Claude Code・Cursor・Codex CLI・opencode の指示・agents・skills を一元管理し、ホームディレクトリへシンボリックリンクでデプロイする。
 
 外部依存は **bash のみ**（`./scripts/deploy.sh`）。
 
 ## 特徴
 
-- **3ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex に同じ設定が届く（届き方の違いは「デプロイ先」節を参照）
-- **agents は Claude / Cursor 向け**: PR レビュー用 2 体 + スペシャリスト 12 体（`pr-review` で動的追加）
-- **skills は全ツールへ**: Codex は `~/.codex/skills/.system` と共存するようスキル単位でリンク
+- **4ツール共通の正本**: `shared/` を編集すれば Claude / Cursor / Codex / opencode に同じ設定が届く（届き方の違いは「デプロイ先」節を参照）
+- **agents は Claude / Cursor / opencode 向け**: PR レビュー用 2 体 + スペシャリスト 12 体（`pr-review` で動的追加）。opencode へは opencode の色スキーマに合わせて変換した上で配る
+- **skills は全ツールへ**: Codex は `~/.codex/skills/.system` と共存するようスキル単位でリンク。opencode は Claude Code 互換で `~/.claude/skills` を自動ロードするため追加配置は不要
 
 ## セットアップ
 
@@ -29,28 +29,32 @@ cd aimod
 ```
 shared/
   instructions.md   # グローバル指示の正本（CLAUDE.md / AGENTS.md）。汎用ルールのみ
-  agents/           # Claude / Cursor 用
-  skills/           # 3ツール共通
+  agents/           # Claude / Cursor 用（opencode は deploy 時に変換して配布）
+  skills/           # 4ツール共通
 claude/             # settings.json など Claude 固有 + 参照用 symlink
 cursor/             # 参照用 symlink
 codex/              # 参照用 symlink + status-line 定義
 scripts/
   deploy.sh
   undeploy.sh
+  opencode-agent-transform.sh  # shared/agents を opencode 形式へ変換（.opencode-agents/ に生成）
 ```
 
 ## デプロイ先
 
 | 正本 | 配置先 |
 |---|---|
-| `shared/instructions.md` | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/AGENTS.md`（Cursor 用）|
+| `shared/instructions.md` | `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/AGENTS.md`（Cursor 用）, `~/.config/opencode/AGENTS.md`（opencode 用）|
 | `shared/agents` | `~/.claude/agents`, `~/.cursor/agents` |
+| `shared/agents`（変換後）| `~/.config/opencode/agents`（`scripts/opencode-agent-transform.sh` が `mode: subagent` を注入し、Claude Code の色名を opencode 対応の hex へ変換。opencode は `~/.claude/agents` を読まないため）|
 | `shared/skills` | `~/.claude/skills`, `~/.cursor/skills` |
 | `shared/skills/<name>` | `~/.codex/skills/<name>` |
 | `claude/settings.json` | `~/.claude/settings.json` |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 | `cursor/statusline.sh` | `~/.cursor/statusline.sh` |
 | `codex/statusline.toml` | `~/.codex/config.toml` の `tui.status_line`（他の設定は保持）|
+
+opencode の skills は Claude Code 互換機能で `~/.claude/skills` を自動ロードするため、`~/.config/opencode/skills` へは**配置しない**（同じスキルが重複ロードされ、opencode の「スキル名は全配置先で一意」要件に反する）。指示も `~/.config/opencode/AGENTS.md` が `~/.claude/CLAUDE.md` より優先されるため、二重ロードは起きない。
 
 `~/AGENTS.md` は、ユーザー自身のファイルと共有しうるため、同名の実体・外部ツール管理の symlink があれば破壊せず SKIP する。取り込みたい場合は中身を `shared/` へ移してから再実行する。
 
@@ -62,7 +66,7 @@ Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワーク�
 
 `~/.codex/config.toml` はファイル全体を管理せず、`codex/statusline.toml` の `tui.status_line` だけをマージする。`undeploy.sh` は値が aimod の定義と一致する場合だけ削除し、ユーザーが変更した値や他の設定は保持する。
 
-管理しないもの: `~/.codex/config.toml` のその他の設定、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`
+管理しないもの: `~/.codex/config.toml` のその他の設定、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`、`~/.config/opencode/opencode.json`（ユーザー固有設定）
 
 ## スキル・エージェントの追加
 
@@ -72,7 +76,7 @@ mkdir -p shared/skills/my-skill
 # shared/skills/my-skill/SKILL.md を書く
 ./scripts/deploy.sh
 
-# エージェント（Claude / Cursor のみ）
+# エージェント（Claude / Cursor / opencode）
 # shared/agents/my-agent.md を書く
 ./scripts/deploy.sh
 ```

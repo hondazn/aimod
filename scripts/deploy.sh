@@ -103,6 +103,7 @@ link_codex_skill() {
 # outside aimod is skipped, not replaced.
 link_guarded_path() {
   local src="$1" dest="$2"
+  mkdir -p "$(dirname "$dest")"
   if [[ -L "$dest" ]]; then
     if [[ "$(readlink "$dest")" == "$src" ]]; then
       return 0
@@ -157,6 +158,17 @@ done
 for entry in "$HOME/.codex/skills"/*; do
   prune_stale_link "$entry"
 done
+
+# opencode: global instructions are read from ~/.config/opencode/AGENTS.md, which wins
+# over the ~/.claude/CLAUDE.md fallback (no double load). Agents must live in
+# ~/.config/opencode/agents — opencode does not read ~/.claude/agents — and need
+# opencode-valid colors plus mode: subagent, so they are generated from shared/agents.
+# Skills need no opencode deploy: opencode auto-loads ~/.claude/skills (Claude Code
+# compatibility), and duplicating them under ~/.config/opencode/skills would break
+# opencode's unique-skill-name requirement.
+link_guarded_path "$ROOT/shared/instructions.md" "$HOME/.config/opencode/AGENTS.md" || true
+"$ROOT/scripts/opencode-agent-transform.sh"
+link "$ROOT/.opencode-agents" "$HOME/.config/opencode/agents"
 
 # Rules were dissolved into skills (code-perfection / coding-standards / design-principles).
 # Drop the links prior versions deployed; anything not ours stays untouched.
