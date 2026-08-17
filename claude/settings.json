@@ -6,7 +6,6 @@
   },
   "permissions": {
     "allow": [
-      "Agent(*)",
       "Bash(ls:*)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
@@ -21,7 +20,6 @@
       "Bash(lsof:*)",
       "Bash(cargo tree:*)",
       "Bash(rustc:*)",
-      "Bash(xargs:*)",
       "Bash(gh auth status:*)",
       "Bash(gh pr create:*)",
       "Bash(gh issue create:*)",
@@ -151,5 +149,52 @@
   "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "soft_deny": [
+      "$defaults",
+      "Bash(wrangler deploy:*) — restrict to jozo.beer subdomains only, review before pushing to unfamiliar zones",
+      "Bash(gh repo create:*) — scoped to jozobeer org, review before creating outside it"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: jozobeer (GitHub org; this repo's remote origin) — evidenced only by repo remote, no corroborating org-wide signal gathered",
+      "**Cloud provider(s)**: Cloudflare (Workers/deploy target, per README and CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID mentions)",
+      "**Repository visibility**: private (jozobeer/kojo, confirmed via gh)",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: main (default); protected branches: none listed via gh (rulesets not queryable here — do not assume unprotected)",
+      "**CI/CD deploy targets**: Cloudflare Workers/Pages under *.jozo.beer (per README publish flow and hosts contacted)",
+      "**Network posture**: None configured",
+      "**Source control**: jozobeer/kojo (origin, private) — this repo only, as scoped by Trusted repo",
+      "**Trusted internal domains**: jozo.beer and its subdomains (apps.jozo.beer, connection-checker.jozo.beer, pomodoro-timer.jozo.beer, qr-generator.jozo.beer, bmi-calculator.jozo.beer, unit-converter.jozo.beer, speed-test.jozo.beer, upload-speed-test.jozo.beer, clock-drift-checker.jozo.beer, deadline-countdown.jozo.beer, rate-limit-demo.jozo.beer, bill-splitter.jozo.beer, character-counter.jozo.beer, color-palette-picker.jozo.beer, flashcard-deck.jozo.beer, json-formatter.jozo.beer, markdown-previewer.jozo.beer) — evidenced by repeated host contacts in this project's transcripts",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: Herdr (multi-agent orchestration/session panes, per README and heavy CLI usage)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: .env and .env.example (DISCORD_WEBHOOK_URL and similar secrets) — share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: Public — hondazn/aimod (confirmed via gh)",
+      "**Default / protected branches**: main (default); no branch protection rules or rulesets listed on hondazn/aimod",
+      "**CI/CD deploy targets**: None configured",
+      "**Source control**: The trusted repo (hondazn/aimod) and its remote (ssh://github.com/hondazn/aimod.git) only",
+      "**Trusted internal domains**: None configured",
+      "**Key internal services**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited — e.g. matches `prod-db`, not `producer`)",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development — autonomous multi-agent app factory (planner/builder/reviewer) publishing daily apps to *.jozo.beer, routine under this repo",
+      "**Trusted repo**: jozobeer/kojo (private) — the git repository the agent started in and its origin remote; confidential material (e.g. .env contents) is fine to keep in this private repo, but secrets are never cleared into it by visibility alone",
+      "**Org-specific CLIs**: herdr, wrangler, gh (jozobeer org repo creation), claude/cursor-agent/codex/opencode — per README requirements and heavy transcript usage (herdr 480×)",
+      "**routine under this repo**: backlog/, factory/, ledger/ paths and ./run.sh invocations (--dry-run, --publish, --upkeep) are the project's normal automated workflow",
+      "**Primary use of Claude Code**: software development — dotfiles/config management for AI coding assistant tooling (this repo, hondazn/aimod)",
+      "**Trusted repo**: hondazn/aimod (public), working directory `/home/zyun/git/github.com/hondazn/aimod`, remote ssh://github.com/hondazn/aimod.git — since the repo is public, only this repo's own work is OK to push there; secrets and sensitive personal/entrusted data are never cleared into it regardless of visibility",
+      "**Org-specific CLIs**: herdr (heavily used in this project's transcripts, 81×), claude, codex, cursor-agent — all appear to be the AI coding tool CLIs this repo manages configs for",
+      "routine under hondazn/aimod scripts/ prefix (deploy.sh, undeploy.sh, opencode-agent-transform.sh) is expected day-to-day activity for this repo"
+    ]
+  }
 }
