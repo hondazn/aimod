@@ -36,7 +36,7 @@ agents:
     model_flag: "--model"
     effort_args: ["--effort", "{effort}"]  # 有効値: low/medium/high/xhigh/max（claude 2.1.226 --help）
     default_model: claude-opus-5
-    extra_args: ["--permission-mode", "acceptEdits"]
+    extra_args: ["--permission-mode", "auto"]
     credit_error_patterns:
       - "credit balance"
       - "usage limit"
@@ -49,24 +49,30 @@ agents:
 roles:
   # 先頭が主担当、以降フォールバック順。model 省略時は default_model。
   # effort は任意。effort_args を持つエージェントのみ有効（cursor はモデル名で表現する）。
+  # extra_args は任意。指定時はエージェント定義の extra_args を丸ごと置換する。
   # クロスレビュー原則: builder と reviewer は別ベンダーに保つこと。
+  commander:
+    # 指揮の委譲先。herdr CLI を Bash で叩くため無人フル権限が必須。
+    # codex はサンドボックスが外部プロセス起動を遮断するため司令役に使えない。
+    - { agent: claude-code, model: claude-opus-5, effort: xhigh }
+    - { agent: cursor, model: cursor-grok-4.6-high }
   planner:
-    - { agent: claude-code, model: claude-fable-5, effort: high }
-    - { agent: claude-code, model: claude-opus-5, effort: max }
+    - { agent: claude-code, model: claude-opus-5, effort: xhigh }
+    - { agent: cursor, model: cursor-grok-4.6-xhigh }
+    - { agent: codex, model: gpt-5.6-terra, effort: high }
   plan-reviewer:
     - { agent: codex, model: gpt-5.6-sol, effort: high }
-    - { agent: claude-code, model: claude-opus-5, effort: max }
+    - { agent: cursor, model: cursor-grok-4.6-high }
+    - { agent: claude-code, model: claude-opus-5, effort: xhigh }
   builder:
-    - { agent: cursor, model: cursor-grok-4.5-high }
-    - { agent: cursor, model: composer-2.5 }
+    - { agent: cursor, model: cursor-grok-4.6-high-fast }
     - { agent: codex, model: gpt-5.6-luna, effort: max }
     - { agent: claude-code, model: claude-sonnet-5, effort: max }
   reviewer:
     - { agent: codex, model: gpt-5.6-sol, effort: high }
-    - { agent: claude-code, model: claude-fable-5, effort: high }
+    - { agent: cursor, model: cursor-grok-4.6-high }
+    - { agent: claude-code, model: claude-opus-5, effort: xhigh }
   fixer:
-    # builder と同系（同じ視点で直させ、判定は reviewer に残す）
-    - { agent: cursor, model: cursor-grok-4.5-high }
-    - { agent: cursor, model: composer-2.5 }
+    - { agent: cursor, model: cursor-grok-4.6-high-fast }
     - { agent: codex, model: gpt-5.6-luna, effort: max }
     - { agent: claude-code, model: claude-sonnet-5, effort: max }

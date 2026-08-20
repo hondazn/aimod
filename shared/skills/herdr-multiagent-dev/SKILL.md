@@ -25,6 +25,7 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 
 | 役割 | 担当 | スコープ |
 |---|---|---|
+| commander | 自分の代役（claude 上位モデル。委譲時のみ） | パイプライン全体の操縦（下記フローの実行主体） |
 | planner | 自分（または claude 上位モデル） | アイデア→受け入れ条件付き計画（PLAN.md） |
 | plan-reviewer | planner と別エージェント | 受け入れ条件の検証可能性・スコープ妥当性のみ |
 | builder | cursor 等 | 計画に沿った実装 + 自己検証 |
@@ -50,6 +51,15 @@ flowchart TD
 - 軽い役割は安価なモデルに落とす（例: バックログ補充は sonnet）
 - **「やめる判断」ができることが無人運用の品質担保**。打ち切りは失敗ではなく正常な終了経路として台帳に記録する
 
+### 指揮の委譲（commander）
+
+指揮の仕事（本パイプラインの操縦）自体を別エージェントに委譲できる。自分は commander を1ペイン起動してタスクと契約を渡し、settled を待って回収するだけになる。
+
+- commander は Herdr ペイン内で動くため `HERDR_ENV=1` は満たされる。herdr CLI を Bash で実行するため無人フル権限が必要（roles の `extra_args` 上書きで付与。codex はサンドボックスが外部プロセス起動を遮断するため候補にしない）
+- 契約: 本スキルに従って操縦・台帳記録し、最終行に「完了」または「打ち切り」の独立行で報告する（「合否判定の機械化」と同じパース規則で回収する）
+- **入れ子禁止**: commander がさらに commander を起動しない（委譲は深さ1固定）
+- フル権限で動くぶん、渡すタスクの作業ディレクトリとスコープは通常の役割より厳密に切ること
+
 ### エージェント・モデルの設定（正本: 同梱の `agents.yaml`）
 
 割当の正本は**本スキルと同じディレクトリの [agents.yaml](agents.yaml)**（ユーザー全体設定。スキルと一緒に全ツールへ配布される）。プロジェクト直下に `agents.yaml` があればそちらを優先する（プロジェクト上書き）。
@@ -72,10 +82,10 @@ agents:
       startup_keys: [<送信キー>]
 roles:
   <役割>:   # 先頭が主担当、以降フォールバック順
-    - { agent: <名前>, model: <上書きモデル>, effort: <推論努力> }   # model 省略時は default_model。effort は任意
+    - { agent: <名前>, model: <上書きモデル>, effort: <推論努力>, extra_args: [<上書きargv>] }   # model 省略時は default_model。effort / extra_args は任意
 ```
 
-起動 argv への展開規則: `<cmd> <model_flag> <model> [<effort_args...>] <extra_args...>`。effort_args は roles のエントリに `effort` がある場合だけ挿入し、`{effort}` をその値で置換する（effort_args を持たないエージェントへの effort 指定は無視。cursor は effort をモデル名で表現する — プロファイル表参照）。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
+起動 argv への展開規則: `<cmd> <model_flag> <model> [<effort_args...>] <extra_args...>`。effort_args は roles のエントリに `effort` がある場合だけ挿入し、`{effort}` をその値で置換する（effort_args を持たないエージェントへの effort 指定は無視。cursor は effort をモデル名で表現する — プロファイル表参照）。roles のエントリに `extra_args` がある場合はエージェント定義の extra_args を**丸ごと置換**する（マージしない）。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
 
 ```bash
 herdr agent start builder --cwd <dir> --split right --no-focus -- \
