@@ -124,7 +124,8 @@
     "discord@claude-plugins-official": true,
     "cloudflare@claude-plugins-official": true,
     "cloudflare@cloudflare": true,
-    "github@claude-plugins-official": true
+    "github@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "cloudflare": {
@@ -143,6 +144,7 @@
     }
   },
   "effortLevel": "xhigh",
+  "advisorModel": "fable",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "autoCompactEnabled": true,
@@ -196,6 +198,5 @@
       "**Org-specific CLIs**: herdr (heavily used in this project's transcripts, 81×), claude, codex, cursor-agent — all appear to be the AI coding tool CLIs this repo manages configs for",
       "routine under hondazn/aimod scripts/ prefix (deploy.sh, undeploy.sh, opencode-agent-transform.sh) is expected day-to-day activity for this repo"
     ]
-  },
-  "advisorModel": "fable"
+  }
 }
