@@ -57,8 +57,9 @@ agents:
     # （`opencode models` で一覧）。codex とは別の課金経路なので、単一候補依存を避けられる。
     default_model: opencode/deepseek-v4-flash
     extra_args: []
-    # --dir の外への書込を自動拒否する。拒否されると適応せず停止するため、
-    # プロンプトに制約と代替手順を明示すること（下の「よくある失敗」参照）。
+    # --dir の外への書込を既定で自動拒否する。拒否されると適応せず停止する。
+    # 契約で回避するのではなく ~/.config/opencode/opencode.json の
+    # permission.external_directory で許可する（SKILL.md の「よくある失敗」参照）。
     sandbox: dir_only
     credit_error_patterns:      # 未実測。codex/claude の文言に合わせた暫定値
       - "usage limit"
