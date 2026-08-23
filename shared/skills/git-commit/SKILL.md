@@ -111,35 +111,6 @@ git commit -m "<type>(<scope>): <description>"
 
 複数コミットに分割する場合は、依存関係を考慮して適切な順序でコミットする。
 
-## 例
-
-**例1: 単一の機能追加**
-
-変更: 認証モジュールにJWTトークンのバリデーションを追加
-
-```
-feat(auth): add JWT token validation
-```
-
-**例2: 複数の変更を分割**
-
-変更: ESLintの設定変更 + 新しいAPIエンドポイント追加
-
-```
-# コミット1
-chore(eslint): update rules for stricter type checking
-
-# コミット2
-feat(api): add user profile endpoint
-```
-
-**例3: スコープなしの変更**
-
-変更: READMEにインストール手順を追加
-
-```
-docs: add installation instructions to README
-```
 
 ## 注意事項
 
