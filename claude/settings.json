@@ -125,7 +125,8 @@
     "cloudflare@claude-plugins-official": true,
     "cloudflare@cloudflare": true,
     "github@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true
+    "vercel@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "cloudflare": {
