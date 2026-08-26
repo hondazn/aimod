@@ -124,7 +124,8 @@
     "discord@claude-plugins-official": true,
     "cloudflare@claude-plugins-official": true,
     "cloudflare@cloudflare": true,
-    "github@claude-plugins-official": true
+    "github@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "cloudflare": {
@@ -143,6 +144,7 @@
     }
   },
   "effortLevel": "xhigh",
+  "advisorModel": "fable",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "autoCompactEnabled": true,

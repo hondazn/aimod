@@ -1,7 +1,6 @@
 # herdr-multiagent-dev のユーザー全体設定（全マシン共通の既定・正本）
 # 優先順: プロジェクト直下の agents.yaml > 同ディレクトリの agents.local.yaml（マシン固有・git管理外）> このファイル。
 # 最初に見つかったファイルを丸ごと使う（マージしない）。マシン依存の変更は agents.local.yaml に書き、このファイルに差分を出さない。
-# 値は実測ベース（Herdr 0.7.4 / 2026-07-30、kojo ドッグフーディングで確認）。
 # 新しいマシン・CLI更新時は書き写さず実測して更新すること。
 agents:
   cursor:
@@ -28,6 +27,7 @@ agents:
     credit_error_patterns:
       - "usage limit"
       - "rate limit"
+      - "at capacity"             # 可用性エラー。判定未出力で中断するためフォールバック扱いが正しい（2026-08-17 実測）
     interaction:
       ready_delay_ms: 5000         # 起動直後のプロンプト消失対策: idle 後さらに待つ
       enter_chaser: true
@@ -45,6 +45,24 @@ agents:
       enter_chaser: false
       startup_gate_pattern: "Do you trust the files in this folder"
       startup_keys: ["enter"]
+  opencode:
+    cmd: opencode
+    # 非対話モード。TUI を起動せず1回の実行で完結するため、ペイン操縦の防御層
+    # （起動ゲート・ready delay・enter 追撃・受理検証・状態ポーリング）が一切不要。
+    # 出力は stdout にそのまま出るので折返しの復元も要らない。
+    mode: headless
+    run_args: ["run", "--dir", "{dir}"]   # {dir} は作業ディレクトリ（サンドボックス境界にもなる）
+    model_flag: "-m"
+    # プロバイダ集約型。deepseek / gemini / gpt / glm / grok / kimi 等を1 CLI から選べる
+    # （`opencode models` で一覧）。codex とは別の課金経路なので、単一候補依存を避けられる。
+    default_model: opencode/deepseek-v4-flash
+    extra_args: []
+    # --dir の外への書込を自動拒否する。拒否されると適応せず停止するため、
+    # プロンプトに制約と代替手順を明示すること（下の「よくある失敗」参照）。
+    sandbox: dir_only
+    credit_error_patterns:      # 未実測。codex/claude の文言に合わせた暫定値
+      - "usage limit"
+      - "rate limit"
 
 roles:
   # 先頭が主担当、以降フォールバック順。model 省略時は default_model。
@@ -61,6 +79,8 @@ roles:
     - { agent: cursor, model: cursor-grok-4.6-xhigh }
     - { agent: codex, model: gpt-5.6-terra, effort: high }
   plan-reviewer:
+    # 非対話が既定（操縦コストゼロ・出力が確実に読める）。ベンダーも codex/claude と別系統
+    - { agent: opencode, model: opencode/deepseek-v4-flash }
     - { agent: codex, model: gpt-5.6-sol, effort: high }
     - { agent: cursor, model: cursor-grok-4.6-high }
     - { agent: claude-code, model: claude-opus-5, effort: xhigh }
@@ -69,6 +89,7 @@ roles:
     - { agent: codex, model: gpt-5.6-luna, effort: max }
     - { agent: claude-code, model: claude-sonnet-5, effort: max }
   reviewer:
+    - { agent: opencode, model: opencode/deepseek-v4-flash }
     - { agent: codex, model: gpt-5.6-sol, effort: high }
     - { agent: cursor, model: cursor-grok-4.6-high }
     - { agent: claude-code, model: claude-opus-5, effort: xhigh }
