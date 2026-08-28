@@ -42,6 +42,18 @@ unlink_if_ours "$HOME/.cursor/skills"
 unlink_if_ours "$HOME/.config/opencode/AGENTS.md"
 unlink_if_ours "$HOME/.config/opencode/agents"
 
+# Plugins are linked per file, so sweep the destination rather than deriving the
+# list from opencode/plugins: that would miss links left behind by a plugin we
+# have since deleted. Files the user keeps here are not symlinks into ROOT, so
+# unlink_if_ours leaves them alone.
+unlink_if_ours "$HOME/.config/opencode/opencode.json"
+if [[ -d "$HOME/.config/opencode/plugins" ]]; then
+  shopt -s nullglob
+  for entry in "$HOME/.config/opencode/plugins"/*; do
+    unlink_if_ours "$entry"
+  done
+fi
+
 unlink_if_ours "$HOME/.claude/rules"
 unlink_if_ours "$HOME/.codex/rules"
 unlink_if_ours "$HOME/.cursor/rules"

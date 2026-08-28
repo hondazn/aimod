@@ -34,6 +34,7 @@ shared/
 claude/             # settings.json など Claude 固有 + 参照用 symlink
 cursor/             # 参照用 symlink
 codex/              # 参照用 symlink + status-line 定義
+opencode/           # opencode.json + ローカル plugins の正本
 scripts/
   deploy.sh
   undeploy.sh
@@ -53,6 +54,8 @@ scripts/
 | `claude/statusline.sh` | `~/.claude/statusline.sh` |
 | `cursor/statusline.sh` | `~/.cursor/statusline.sh` |
 | `codex/statusline.toml` | `~/.codex/config.toml` の `tui.status_line`（他の設定は保持）|
+| `opencode/opencode.json` | `~/.config/opencode/opencode.json`（既存の実体は置換）|
+| `opencode/plugins/<name>` | `~/.config/opencode/plugins/<name>`（エントリ単位。手で置いたプラグインは保護）|
 
 opencode の skills は Claude Code 互換機能で `~/.claude/skills` を自動ロードするため、`~/.config/opencode/skills` へは**配置しない**（同じスキルが重複ロードされ、opencode の「スキル名は全配置先で一意」要件に反する）。指示も `~/.config/opencode/AGENTS.md` が `~/.claude/CLAUDE.md` より優先されるため、二重ロードは起きない。
 
@@ -66,7 +69,9 @@ Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワーク�
 
 `~/.codex/config.toml` はファイル全体を管理せず、`codex/statusline.toml` の `tui.status_line` だけをマージする。`undeploy.sh` は値が aimod の定義と一致する場合だけ削除し、ユーザーが変更した値や他の設定は保持する。
 
-管理しないもの: `~/.codex/config.toml` のその他の設定、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`、`~/.config/opencode/opencode.json`（ユーザー固有設定）
+管理しないもの: `~/.codex/config.toml` のその他の設定、auth / credentials、`~/.cursor/cli-config.json`、`~/.cursor/skills-cursor/`、`~/.config/opencode/opencode.json` 以外の `~/.config/opencode` 配下（`package.json` / `node_modules` 等のプラグイン依存解決用ファイル）
+
+opencode の config は起動時に厳格に検証され、不正なフィールドがあると起動しない。`opencode/opencode.json` を編集したら JSON 妥当性を確認してから `./scripts/deploy.sh` し、デプロイ後に opencode を一度起動して確認する。
 
 ## スキル・エージェントの追加
 

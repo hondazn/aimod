@@ -26,11 +26,14 @@ cursor/          ← Cursor用（repo内参照用symlink + ツール固有ファ
 codex/           ← Codex用（repo内参照用symlink + ツール固有設定）
   AGENTS.md -> ../shared/instructions.md
   statusline.toml
+opencode/        ← opencode用のツール固有設定（config と plugins の正本）
+  opencode.json
+  plugins/
 scripts/
   deploy.sh / undeploy.sh / manage-codex-statusline.sh
   opencode-agent-transform.sh  # shared/agents → .opencode-agents/（opencode 形式へ変換）
 tests/
-  codex-statusline-config-test.sh / opencode-agents-test.sh
+  codex-statusline-config-test.sh / opencode-agents-test.sh / opencode-config-test.sh
 ```
 
 **設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor / opencode へ配る（Codex は同型の agents をサポートしない）。opencode は色スキーマが異なり `mode` 既定が `all` のため、`shared/agents` をそのままリンクせず `opencode-agent-transform.sh` で変換したものを `.opencode-agents/` に生成してリンクする。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。opencode の instructions は `~/.config/opencode/AGENTS.md`（`~/.claude/CLAUDE.md` フォールバックより優先 — 後述）、skills は Claude Code 互換の `~/.claude/skills` 自動ロードで届く。
@@ -113,10 +116,14 @@ Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink な
 - `claude/statusline.sh` → `~/.claude/statusline.sh`
 - `cursor/statusline.sh` → `~/.cursor/statusline.sh`（`cli-config.json` の `statusLine` は手動で有効化）
 - `codex/statusline.toml` → `~/.codex/config.toml` の `tui.status_line`（既存ファイルへマージし、他の設定は保持）
+- `opencode/opencode.json` → `~/.config/opencode/opencode.json`（aimod 所有。既存の実体は置換する）
+- `opencode/plugins/<name>` → `~/.config/opencode/plugins/<name>`（エントリ単位で guarded。手で置いたプラグインや外部管理リンクは SKIP、aimod 由来の壊れたリンクだけ prune）
+
+opencode の config は厳格に検証され、フィールドを間違えると起動ごと落ちる（`ConfigAgent.load` 等は catch しない）。そのため `opencode/opencode.json` を編集したら `./scripts/deploy.sh` の前に JSON としての妥当性を確認し、デプロイ後は opencode を一度起動して確認する。
 
 Codex は Claude のような command-based status line をサポートせず、組み込み項目 ID の配列を `tui.status_line` に設定する。`deploy.sh` はこのキーだけを追加・置換する。`undeploy.sh` は現在値が `codex/statusline.toml` と完全一致する場合だけ削除し、ユーザーが変更した値は残す。
 
-管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`, `~/.claude/hooks/`, `~/.config/opencode/opencode.json`（ユーザー固有設定）
+管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`, `~/.claude/hooks/`, `~/.config/opencode/opencode.json` 以外の `~/.config/opencode` 配下（`package.json` / `node_modules` 等のプラグイン依存解決用ファイル）
 
 ### worktree の強制は本体設定を使い、既定は無効
 

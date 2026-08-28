@@ -170,6 +170,17 @@ link_guarded_path "$ROOT/shared/instructions.md" "$HOME/.config/opencode/AGENTS.
 "$ROOT/scripts/opencode-agent-transform.sh"
 link "$ROOT/.opencode-agents" "$HOME/.config/opencode/agents"
 
+# opencode config is aimod-owned like Claude's settings.json: the user's file was
+# imported into opencode/, so a pre-existing real file is replaced, not skipped.
+# Plugins go in per entry so plugins dropped by hand outside the repo survive.
+link "$ROOT/opencode/opencode.json" "$HOME/.config/opencode/opencode.json"
+for plugin in "$ROOT/opencode/plugins"/*; do
+  link_guarded_path "$plugin" "$HOME/.config/opencode/plugins/$(basename "$plugin")" || true
+done
+for entry in "$HOME/.config/opencode/plugins"/*; do
+  prune_stale_link "$entry"
+done
+
 # Rules were dissolved into skills (code-perfection / coding-standards / design-principles).
 # Drop the links prior versions deployed; anything not ours stays untouched.
 for legacy in "$HOME/.claude/rules" "$HOME/.codex/rules" "$HOME/.cursor/rules"; do
