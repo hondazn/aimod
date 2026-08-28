@@ -1,6 +1,6 @@
 # レビューコメント用バッジ定義（mojiemoji 版）
 
-このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer エージェント（`meta-reviewer` / `fatal-reviewer` / 動的スペシャリスト）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返し、Phase 4-7 がそれらを mojiemoji-github スキル経由でバッジ Markdown に組み立てます。
+このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer（親 `lead` / `fatal-reviewer` / 動的スペシャリスト）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返し、Phase 4-7 がそれらを mojiemoji-github スキル経由でバッジ Markdown に組み立てます。
 
 画像生成 API は <https://mojiemoji.jozo.beer/>（Slack 絵文字サイズの PNG / GIF を返す）を利用します。
 
@@ -88,7 +88,8 @@ Phase 4-7 は `badge_label` が以下のいずれかに該当する場合、seve
 | reviewer | アニメプール（ローテーション順） | 意味付け |
 |---|---|---|
 | `fatal-reviewer` | `gatagata` → `shuchusen` → `bure` → `chuuou_zoom` | 致命を揺らし集中線で止める |
-| `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon` | 集中線で前提に視線を奪う／グリッチで前提崩れ／弾みでやわらかく |
+| `lead` | `shuchusen` → `bure` → `gatagata` → `poyoon` | 親 Lead。集中線で前提に視線を奪う／グリッチで前提崩れ／弾みでやわらかく |
+| `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon` | `self_review` 残置。レビュー経路では使わない |
 | `*`（スペシャリスト共通フォールバック） | `yoko_scroll` → `mochimochi` → `bane` → `poyoon` | 動的スペシャリスト共通。個別プールは持たない |
 
 ### ローテーション規則
@@ -124,7 +125,7 @@ https://mojiemoji.jozo.beer/emoji/{badge_label}?color={color}&animation={animati
 
 `pr-review` Phase 4-7 はヘルパースクリプト経由で Markdown 画像参照を生成する。
 
-通常ケース（reviewer が出した `badge_label` を採用、`meta-reviewer` の i=0、severity=good）:
+通常ケース（reviewer が出した `badge_label` を採用、`lead` の i=0、severity=good）:
 
 ```bash
 ruby "$HELPER" --text $'見事な\n抽象化' \
