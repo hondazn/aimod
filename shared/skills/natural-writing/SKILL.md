@@ -6,6 +6,7 @@ description: |
   （→ technical-writing）、成果物の最終削りも領分外（→ less-is-more）。
   トリガー: 「自然に直して」「AI臭さを消して」「校正して」「リライトして」「添削して」
   「文章を書いて」「もっと簡潔にしたい」「冗長じゃないか」、および日本語テキストの改善依頼全般。
+license: Proprietary
 ---
 # Natural Writing - 自然な日本語文章
 

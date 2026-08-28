@@ -6,11 +6,10 @@ description: |
   ワイルドカードのアンチパターンと解決策を収録する。テーブル設計・DDL は領分外（→ rdb-design）。
   トリガー: 「SQLを書いて」「このクエリを直して/速くして」「NULLの扱い」「GROUP BYでエラー」
   「ランダムに行を取得」「LIKE検索が遅い」「集計結果がおかしい」。
+license: Proprietary
 ---
 
 # SQLクエリ — アンチパターン回避リファレンス
-
-出典: SQL Antipatterns, Vol.1 (Bill Karwin) 第III部の要約再構成。
 
 ## 使い方
 
@@ -31,12 +30,12 @@ description: |
 
 | # | 名前 | やりがちな書き方 | 何が壊れるか | 解決策 |
 |---|---|---|---|---|
-| 14 | フィア・オブ・ジ・アンノウン | `WHERE col = NULL`、NULL回避の特殊値(-1) | 3値論理で行が消える、集計汚染 | IS NULL / IS DISTINCT FROM / COALESCE |
-| 15 | アンビギュアスグループ | GROUP BYに無い列をSELECTに書く | エラー、またはMySQL/SQLiteで不定値 | ウィンドウ関数・導出テーブル等から選択 |
-| 16 | ランダムセレクション | `ORDER BY RAND() LIMIT 1` | インデックス不使用の全件ソート | 乱数キー参照・オフセット・TABLESAMPLE |
-| 17 | プアマンズ・サーチエンジン | `LIKE '%crash%'` / REGEXP | 全行スキャン、誤マッチ | 全文検索機能・転置インデックス |
-| 18 | スパゲッティクエリ | 複雑な仕事を1クエリに詰め込む | 意図しないデカルト積で集計水増し、保守不能 | 分割統治（複数の単純なクエリ） |
-| 19 | インプリシットカラム | `SELECT *`、INSERT列リスト省略 | JOINの列名衝突、列変更でサイレント破壊 | 列名を明示（ポカヨケ） |
+| 14 | Fear of the Unknown | `WHERE col = NULL`、NULL回避の特殊値(-1) | 3値論理で行が消える、集計汚染 | IS NULL / IS DISTINCT FROM / COALESCE |
+| 15 | Ambiguous Groups | GROUP BYに無い列をSELECTに書く | エラー、またはMySQL/SQLiteで不定値 | ウィンドウ関数・導出テーブル等から選択 |
+| 16 | Random Selection | `ORDER BY RAND() LIMIT 1` | インデックス不使用の全件ソート | 乱数キー参照・オフセット・TABLESAMPLE |
+| 17 | Poor Man's Search Engine | `LIKE '%crash%'` / REGEXP | 全行スキャン、誤マッチ | 全文検索機能・転置インデックス |
+| 18 | Spaghetti Query | 複雑な仕事を1クエリに詰め込む | 意図しないデカルト積で集計水増し、保守不能 | 分割統治（複数の単純なクエリ） |
+| 19 | Implicit Columns | `SELECT *`、INSERT列リスト省略 | JOINの列名衝突、列変更でサイレント破壊 | 列名を明示（ポカヨケ） |
 
 ## 判定テスト
 

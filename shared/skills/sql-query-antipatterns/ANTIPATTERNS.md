@@ -2,7 +2,7 @@
 
 各節の構成: 症状（アンチパターンの形）／見つけ方（会話・SQL上の兆候）／例外（用いてもよい場合）／解決策。
 
-## 14. フィア・オブ・ジ・アンノウン（恐怖のunknown） / Fear of the Unknown
+## 14. Fear of the Unknown
 
 **症状**: NULLを一般値のように扱う、または一般値（-1等）でNULLを代用する。
 
@@ -29,7 +29,7 @@ SELECT first_name || COALESCE(' ' || middle_initial || ' ', ' ') || last_name FR
 
 ミニAP: `NOT IN (NULL, 'NEW')` はどの行にもマッチしない（`NOT (col = NULL)` が unknown のまま AND されるため）。IN/NOT IN リストにNULLを含めない。
 
-## 15. アンビギュアスグループ（曖昧なグループ） / Ambiguous Groups
+## 15. Ambiguous Groups（曖昧なグループ）
 
 **症状**: 単一値の原則違反 — SELECT列に「GROUP BY指定列でも集約関数でもない列」を書く。「MAXを取った行の他の列も返るはず」という期待は成り立たない（最大値の行が複数ある/MAXとMINで別の行になる/SUMは元のどの行とも一致しない）。多くのDBはエラーにするが、SQLite と `ONLY_FULL_GROUP_BY` 無効のMySQLは**不定値を黙って返す**。
 
@@ -53,7 +53,7 @@ SELECT first_name || COALESCE(' ' || middle_initial || ' ', ' ') || last_name FR
 
 ミニAP: 「ポータブルSQL」— 全製品共通で動くSQLへの固執自体がアンチパターン。ベンダー拡張の利益を捨てても完全な移植性は得られない。差異はAdapter層で吸収する。
 
-## 16. ランダムセレクション / Random Selection
+## 16. Random Selection
 
 **症状**: `SELECT * FROM Bugs ORDER BY RAND() LIMIT 1`。RAND() は行ごとの非決定値でインデックス化不可能なため、全行の手作業ソートになる。開発環境では気づかず、データ増加とともに確実に遅くなる。
 
@@ -74,7 +74,7 @@ SELECT first_name || COALESCE(' ' || middle_initial || ' ', ' ') || last_name FR
 
 ミニAP: 複数行のランダム取得 — 単一行手法の繰り返しは重複と無限リトライ（行数不足時）のリスクがある。性能とコードの単純さのトレードオフとして `ORDER BY RAND() LIMIT n` を選ぶ余地もある。
 
-## 17. プアマンズ・サーチエンジン（貧者のサーチエンジン） / Poor Man's Search Engine
+## 17. Poor Man's Search Engine
 
 **症状**: キーワード検索を `LIKE '%crash%'` や REGEXP で実装。通常のインデックスが効かず全行スキャン、`%one%` が money/prone/lonely にもマッチ、データ増加でスケールしない。
 
@@ -96,7 +96,7 @@ ALTER TABLE Bugs ADD FULLTEXT INDEX bugfts (summary, description);
 SELECT * FROM Bugs WHERE MATCH(summary, description) AGAINST ('+crash -save' IN BOOLEAN MODE);
 ```
 
-## 18. スパゲッティクエリ / Spaghetti Query
+## 18. Spaghetti Query
 
 **症状**: 複雑な仕事を1つの「エレガントな」クエリで解こうとする。典型は複数の独立した集計の同時実行 — 無関係なテーブルを結合条件なしでJOINして**意図しないデカルト積**が発生し、COUNT/SUMが水増しされる。保守不能・最適化困難。
 
@@ -106,7 +106,7 @@ SELECT * FROM Bugs WHERE MATCH(summary, description) AGAINST ('+crash -save' IN 
 
 **解決策**: 分割統治。無関係な集計は別々の単純なクエリに分ける（正確性の検証・要件追加・SQLエンジンの最適化すべてが楽になる）。行ごとに違う値の大量UPDATEは、巨大CASEでなく SELECT で UPDATE 文を生成して実行する手もある。UNIONは同じ列構造を縦に積む場合、CASEは行内の条件分岐に使い、「無関係な集計を1クエリに統合しない」が核心。
 
-## 19. インプリシットカラム（暗黙の列） / Implicit Columns
+## 19. Implicit Columns（暗黙の列）
 
 **症状**: `SELECT *` と INSERT の列リスト省略。JOINで同名列（`b.title` と `a.title`）が衝突し連想配列受け取りで片方が消える。列の追加・削除・順序変更で `INSERT ... VALUES` が個数不一致エラーか**サイレントに誤った列へ格納**。序数アクセスのコードもずれる。不要列の転送で帯域も浪費。
 

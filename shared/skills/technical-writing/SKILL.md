@@ -6,6 +6,7 @@ description: |
   Issue・SKILL.md・解説記事が対象。文章を実際に書き直す手順は領分外（→ natural-writing）。
   トリガー: 「ドキュメントを書いて」「設計文書」「この説明で伝わるか」「PR の本文」
   「文章の構成を直して」「読みにくい」。
+license: Proprietary
 ---
 
 # 日本語技術文書の規範
