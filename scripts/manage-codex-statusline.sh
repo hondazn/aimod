@@ -15,7 +15,11 @@ if [[ -z "$CONFIG_PATH" || ! -f "$STATUSLINE_PATH" ]]; then
   exit 2
 fi
 
-mapfile -t assignments < <(
+# macOS ships bash 3.2, which has no mapfile.
+assignments=()
+while IFS= read -r line; do
+  assignments+=("$line")
+done < <(
   grep -E '^[[:space:]]*status_line[[:space:]]*=' "$STATUSLINE_PATH" || true
 )
 if [[ "${#assignments[@]}" -ne 1 ]]; then
