@@ -12,8 +12,7 @@ agents:
     credit_error_patterns:
       - "usage limit"
     interaction:
-      ready_delay_ms: 3000
-      enter_chaser: true           # bracketed paste 対策: 送信2秒後に enter 追撃
+      gate_detection: screen       # herdr は cursor の Trust ダイアログを検知しない → 画面を読む
       startup_gate_pattern: "Trust this workspace"
       startup_keys: ["a"]          # --force では抑止されない Trust ダイアログ
   codex:
@@ -29,8 +28,9 @@ agents:
       - "rate limit"
       - "at capacity"             # 可用性エラー。判定未出力で中断するためフォールバック扱いが正しい（2026-08-17 実測）
     interaction:
-      ready_delay_ms: 5000         # 起動直後のプロンプト消失対策: idle 後さらに待つ
-      enter_chaser: true
+      gate_detection: herdr        # agent start が agent_not_ready を返す
+      startup_gate_pattern: "Do you trust the contents of this directory"
+      startup_keys: ["enter"]      # 既定選択は "1. Yes, continue"
   claude-code:
     cmd: claude
     model_flag: "--model"
@@ -41,14 +41,14 @@ agents:
       - "credit balance"
       - "usage limit"
     interaction:
-      ready_delay_ms: 3000
-      enter_chaser: false
-      startup_gate_pattern: "Do you trust the files in this folder"
-      startup_keys: ["enter"]
+      gate_detection: herdr        # agent start が agent_not_ready を返す
+      # 既定選択は "No, exit"。enter だけを送るとエージェントが終了する（2026-08-29 実測）
+      startup_gate_pattern: "Is this a project you created or one you trust"
+      startup_keys: ["down", "enter"]
   opencode:
     cmd: opencode
-    # 非対話モード。TUI を起動せず1回の実行で完結するため、ペイン操縦の防御層
-    # （起動ゲート・ready delay・enter 追撃・受理検証・状態ポーリング）が一切不要。
+    # 非対話モード。TUI を起動せず1回の実行で完結するため、ペイン操縦
+    # （ペイン作成・起動ゲート・状態ポーリング）が一切不要。
     # 出力は stdout にそのまま出るので折返しの復元も要らない。
     mode: headless
     run_args: ["run", "--dir", "{dir}"]   # {dir} は作業ディレクトリ（サンドボックス境界にもなる）

@@ -13,7 +13,7 @@ code-perfection の開発ループ（探索→モデル化→TDD→学習）を�
 2. **分類付き合否**: reviewer の判定を二値（合格/不合格）から「不合格 + 分類」に拡張し、分類を code-perfection の戻り先（Refactor / モデル化 / 探索）へルーティングする
 3. **有界ループ**: code-perfection のループは無限だが、委譲して回す以上は戻り回数とタイムボックスに上限を課す。「やめる判断」が品質担保
 
-**REQUIRED BACKGROUND:** code-perfection（ループ意味論の正本）、herdr-multiagent-dev（役割設計・操縦・防御層・判定パースの正本）。開始前に `test "${HERDR_ENV:-}" = 1` を確認する。
+**REQUIRED BACKGROUND:** code-perfection（ループ意味論の正本）、herdr-multiagent-dev（役割設計・起動ゲート・判定パースの正本。CLI 操作は herdr スキル）。開始前に `test "${HERDR_ENV:-}" = 1` を確認する。
 
 ## When to Use
 
@@ -37,7 +37,7 @@ flowchart TD
     A2 --> B
 ```
 
-各エッジの実行（起動・送信・受理検証・settled 待ち・回収）は herdr-multiagent-dev のセッションライフサイクルに従う。
+各エッジの実行（起動・送信・settled 待ち・回収）は herdr-multiagent-dev のセッションライフサイクルに従う。
 
 ## 段階 → 役割の写像
 
