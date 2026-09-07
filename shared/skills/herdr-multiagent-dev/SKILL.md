@@ -26,7 +26,7 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 | 役割 | 担当 | スコープ |
 |---|---|---|
 | commander | 自分の代役（claude 上位モデル。委譲時のみ） | パイプライン全体の操縦（下記フローの実行主体） |
-| planner | 自分（または claude 上位モデル） | アイデア→受け入れ条件付き計画（PLAN.md） |
+| planner | 自分（または claude 上位モデル） | アイデア→受け入れ条件付き計画（計画書） |
 | plan-reviewer | planner と別エージェント | 受け入れ条件の検証可能性・スコープ妥当性のみ |
 | builder | cursor 等 | 計画に沿った実装 + 自己検証 |
 | reviewer | builder と別エージェント（codex 等） | fatal 問題 + 受け入れ条件の未達のみ。スタイル指摘禁止 |
@@ -36,7 +36,7 @@ description: Herdr経由で複数のコーディングエージェントCLI（cu
 
 ```mermaid
 flowchart TD
-    P[planner: PLAN.md] --> PR[plan-reviewer]
+    P[planner: 計画書] --> PR[plan-reviewer]
     PR -->|不合格| P
     PR -->|合格| B[builder: 実装 + 自己検証]
     B --> R[reviewer: fatal + 受け入れ条件のみ]
@@ -166,7 +166,7 @@ settled 待ちの早期リターン（0.7.5 で観測した、作業中の状態
 | `verdict.py <log>` | 判定行を**末尾から**走査して取り出す。プロンプトのエコーを拾わない（下記の独立行契約の実装） |
 | `wait-verdict.sh <log> [timeout] [quiet]` | 非対話セッションの完了待ち。判定行の出現とログの静止の両方を見る |
 | `wait-settled.sh <agent> [timeout] [debounce]` | herdr ペインの完了待ち。idle / blocked をデバウンスする |
-| `make-review-copy.sh <dir> <PLAN.md> [files...]` | reviewer の使い捨てコピーを作る。`EXTRA_FROM_GIT` で作業ツリーに無いファイル（他 ref の spec 等）も同梱できる |
+| `make-review-copy.sh <dir> <計画書> [files...]` | reviewer の使い捨てコピーを作る。計画書もファイルもリポ相対パスで渡す（コピー内も同じパス）。`EXTRA_FROM_GIT` で作業ツリーに無いファイル（他 ref の spec 等）も同梱できる |
 
 ## 合否判定の機械化（独立行契約）
 

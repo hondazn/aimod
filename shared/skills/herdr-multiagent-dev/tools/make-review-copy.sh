@@ -8,8 +8,11 @@
 # backup outside its sandbox and stalls.
 #
 # usage: [REPO=<path>] [EXTRA_FROM_GIT="<ref>:<path> ..."] \
-#          make-review-copy.sh <copy-dir> <PLAN.md> [files-under-review...]
+#          make-review-copy.sh <copy-dir> <plan> [files-under-review...]
 #
+#   plan       the plan the reviewer reads, repo-relative like the files below.
+#              The copy keeps the same path, so one path names it in both the
+#              real repo and the copy
 #   files      paths relative to the repo, taken from the WORKING TREE, so
 #              uncommitted builder output (untracked files included) is reviewed
 #   EXTRA_FROM_GIT
@@ -24,8 +27,7 @@ C="$1"; PLAN="$2"; shift 2
 mkdir -p "$C"
 (cd "$REPO" && git archive HEAD) | tar -x -C "$C"
 [ -d "$REPO/node_modules" ] && ln -sfn "$REPO/node_modules" "$C/node_modules"
-cp "$PLAN" "$C/PLAN.md"
-for f in "$@"; do mkdir -p "$C/$(dirname "$f")"; cp "$REPO/$f" "$C/$f"; done
+for f in "$PLAN" "$@"; do mkdir -p "$C/$(dirname "$f")"; cp "$REPO/$f" "$C/$f"; done
 if [ $# -gt 0 ]; then (cd "$REPO" && git diff HEAD -- "$@") > "$C/REVIEW-DIFF.patch"; fi
 for spec in ${EXTRA_FROM_GIT:-}; do
   mkdir -p "$C/extra"
@@ -33,5 +35,5 @@ for spec in ${EXTRA_FROM_GIT:-}; do
 done
 cd "$C" && git init -q && git add -A &&
   git -c user.name=review -c user.email=review@example.com \
-      commit -qm "repo at HEAD + work under review + PLAN.md" &&
+      commit -qm "repo at HEAD + work under review + plan" &&
   git log --oneline | head -1
