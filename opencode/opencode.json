@@ -5,20 +5,30 @@
     "bash": "allow",
     "external_directory": {
       "~/git/**": "allow",
-      "/tmp/claude-*/**": "allow",
+      "~/.opencode/**": "allow",
+      "~/.config/opencode/**": "allow",
+      "~/.cargo/**": "allow",
+      "~/.moon/**": "allow",
+      "~/.mise/**": "allow",
       "/tmp": "allow",
       "/tmp/**": "allow",
       "/private/tmp": "allow",
-      "/private/tmp/*": "allow",
+      "/private/tmp/**": "allow",
       "env:$TMPDIR": "allow",
-      "env:$TMPDIR/*": "allow"
+      "env:$TMPDIR/**": "allow"
     }
   },
   "lsp": true,
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"],
+      "command": [
+        "npx",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--executable-path",
+        "/home/zyun/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome"
+      ],
       "enabled": true
     },
     "cloudflare-api": {
