@@ -1,6 +1,6 @@
 ---
 name: code-perfection-multiagent
-description: 開発依頼をラウンド（code-perfectionループ一周 = 1ユースケース）に切り出し、code-perfection のフローを herdr-multiagent-dev の役割分担（builder/reviewer等）で正確に実行する開発手法。「マルチエージェントで開発ループを回して」「クロスレビュー付きでTDD開発」「code-perfection-multiagent」などのリクエストで使用する。HERDR_ENV=1 が前提。ループ意味論はcode-perfection、操縦機構はherdr-multiagent-devが正本。
+description: code-perfection のループを herdr-multiagent-dev の役割分担（builder/reviewer 等）で実行するマルチエージェント開発。HERDR_ENV=1 が前提。マルチエージェントでの開発依頼で使う。
 ---
 
 # code-perfection-multiagent — code-perfection ループのマルチエージェント実行

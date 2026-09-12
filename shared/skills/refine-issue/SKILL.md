@@ -1,14 +1,7 @@
 ---
 allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(ls:*) AskUserQuestion
 argument-hint: '[Issue番号 例: #123 または 123 または URL]'
-description: |
-    既存のGitHub Issueを分析し、`grilling` による尋問で仕様を精緻化してIssueを更新する。
-    前提・価値（そもそも解くべき問題か）から決定木順に、コードベース調査を根拠とした
-    推奨回答つきの質問で深掘りし、共通理解台帳で収束を管理する。前提が崩れた場合は
-    クローズ/再定義まで提案する。
-    トリガー: 「Issueをリファインして」「Issue #NNを精緻化して」「Issueの仕様を詰めて」
-    「Issueに情報を追加して」「Issueを整理して」「このIssueで実装に着手できるようにして」
-    Issue番号やURLが含まれるIssue改善の依頼には必ずこのスキルを使うこと。
+description: 既存 Issue をコードベース調査と尋問で精緻化し、実装に着手できる状態へ更新する。前提が崩れたらクローズや再定義まで提案する。
 name: refine-issue
 ---
 # Issue精緻化

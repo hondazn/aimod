@@ -1,11 +1,6 @@
 ---
 name: sql-query-antipatterns
-description: |
-  SQLのクエリ（SELECT/UPDATE/DELETE 等の DML）を書く・直す・レビューするときに適用する
-  リファレンス。NULLの3値論理・GROUP BYの単一値原則・乱択・全文検索・クエリ肥大化・
-  ワイルドカードのアンチパターンと解決策を収録する。テーブル設計・DDL は領分外（→ rdb-design）。
-  トリガー: 「SQLを書いて」「このクエリを直して/速くして」「NULLの扱い」「GROUP BYでエラー」
-  「ランダムに行を取得」「LIKE検索が遅い」「集計結果がおかしい」。
+description: SQL（DML）のアンチパターンと解決策のリファレンス。NULL・GROUP BY・乱択・全文検索・クエリ肥大化などを、書く・直す・レビューするときに参照する。テーブル設計・DDL は領分外（→ rdb-design）。
 license: Proprietary
 ---
 

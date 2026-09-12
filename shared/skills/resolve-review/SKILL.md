@@ -1,10 +1,7 @@
 ---
 allowed-tools: Read(*) Write(*) Edit(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(ls:*) AskUserQuestion Agent
 argument-hint: '[PR番号 例: #123 または 123]'
-description: |
-    PRの未解決レビューコメントを取得し、Acceptor（受容者）/Challenger（挑戦者）の
-    2視点で合議的に評価して最適な対応（修正 / 返信 / スキップ）を自律的に導くスキル。
-    トリガー: 「レビュー対応して」「レビューコメントを修正して」「PR #NNのレビューを対応して」「PRレビューをトリアージして」「レビューを精査して」
+description: PR の未解決レビューコメントを、Acceptor / Challenger の2視点で合議的に評価し、修正・返信・スキップを導く。
 name: resolve-review
 ---
 # レビューコメント対応（合議型分類・修正・返信）

@@ -1,6 +1,6 @@
 ---
 name: herdr-multiagent-dev
-description: Herdr経由で複数のコーディングエージェントCLI（cursor-agent / codex / claude）を操縦し、builder・reviewer等の役割分担で開発を回すときに使う。「cursorに実装させて」「codexにレビューさせて」「マルチエージェントで開発」「クロスレビューを回して」「エージェントを自動操縦」などのリクエスト、またはHerdrペイン内から他エージェントに実装・レビューを委譲する場面で使用する。HERDR_ENV=1 が前提。Herdr CLIの構文はherdrスキルが正本。
+description: Herdr 経由で cursor-agent / codex / claude を操縦し、builder・reviewer 等の役割分担で開発を回す。HERDR_ENV=1 が前提。操縦構文の正本は herdr スキル。
 ---
 
 # Herdr マルチエージェント開発

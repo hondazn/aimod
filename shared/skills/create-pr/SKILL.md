@@ -1,9 +1,7 @@
 ---
 allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
 argument-hint: '[補足 例: base ブランチ指定・draft PR 指示 など。省略可]'
-description: |
-    GitHub Pull Request を作成する。現在のブランチ差分・コミット履歴・関連Issue・既存PRパターンから、タイトルと本文（変更概要・動作確認エビデンス・Test Plan・Issue 紐付け・レビュー重点確認ポイント）を生成し、`gh pr create` で即起票する。確認ゲートは置かず仮決め即実行。push 未実施でも無条件で `git push -u origin <branch>` を実行してから起票する。
-    トリガー: 「PRを作って」「プルリクを作って」「この変更でPR立てて」「PR出して」「Pull Requestを作成」「変更をPRにまとめて」「作業をPRにして」「PR化して」「共有準備」「リモートに出して」「レビュー依頼して」。
+description: 現在の差分・コミット履歴・関連 Issue から PR 本文を生成し、push して即起票する。確認ゲートは置かず、動作確認エビデンスと Test Plan を含める。
 name: create-pr
 ---
 # 新規PR作成

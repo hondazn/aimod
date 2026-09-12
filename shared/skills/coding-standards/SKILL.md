@@ -1,11 +1,6 @@
 ---
 name: coding-standards
-description: |
-  コードを書く・直す最中に適用する実装規律のリファレンス。認知負荷7の閾値・CQS・
-  Parse don't validate・再現テスト先行を守らせる。規模や開発フローの使用有無を問わず、
-  コード変更を伴うすべての作業で適用する。実装前の設計（→ design-code）と
-  成果物の最終削り（→ less-is-more）は領分外。
-  トリガー: 実装・修正・リファクタリング・テスト追加、「コーディング規約」「この書き方でいいか」。
+description: コードを書く・直す最中の実装規律。認知負荷7の閾値、CQS、Parse don't validate、再現テスト先行を守る。コード変更を伴う作業で適用する。実装前の設計（→ design-code）と成果物の最終削り（→ less-is-more）は領分外。
 license: Proprietary
 ---
 

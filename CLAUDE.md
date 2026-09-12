@@ -144,6 +144,7 @@ aimod は worktree 関連のフックを配らない。Claude Code 本体が同�
 - **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude / Cursor / opencode へ配布。opencode 用の変換は `deploy.sh` が自動実行）→ `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
+- **description は短く**: 一覧として毎セッション全スキル分がロードされるため、「何をするか + いつ使うか」を 1〜2 文（目安 200 字以内）で書く。Codex は実測で約 328 字で切り詰めるため、長いトリガー列挙は末尾から失われる。領分・手順の詳細は本文か補助ファイルへ置く（progressive disclosure）
 - **スキル退避**: 使用頻度が低いスキルは `git mv shared/skills/<name> shared/skills-archive/<name>` でデプロイ対象から外す（deploy.sh の変更は不要。Claude/Cursor はディレクトリ symlink が即追随し、Codex の残骸リンクは次回 deploy の `prune_stale_link` が除去する）。復帰は逆向きに `git mv` して `./scripts/deploy.sh`。退避時は残存スキルからの参照切れを grep で確認すること
 
 `shared/instructions.md` に足してよいのは作業種別を問わず常に効く汎用ルールだけ（グローバル設定として毎セッション全文ロードされる）。特定作業の知識はスキル本文へ、特定スキルからしか参照しない長大な参照表はそのスキルの補助ファイルとして `shared/skills/<skill>/` に置くこと（例: `pr-review/REVIEW-BADGES.md`）。

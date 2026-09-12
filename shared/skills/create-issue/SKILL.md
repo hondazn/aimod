@@ -1,9 +1,7 @@
 ---
 allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git log:*) Bash(git diff:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
 argument-hint: '[タスク概要 または省略 (コンテキストから推論)]'
-description: |
-    新規 GitHub Issue を起票する。タスク内容から種別（feat/fix/docs/refactor/chore/perf/test/ci）を仮分類し、リポジトリ既存の Issue テンプレート・命名規則・ラベル運用に合わせてタイトルと本文を生成し、`gh issue create` で即起票する。確認ゲートは置かず仮決め即実行。情報不足でも仮のタイトル・本文で起票してから `/refine-issue` を提案する。
-    トリガー: 「Issueを作って」「Issueを起票して」「〜のバグを記録して」「〜の機能要望を登録して」「チケットを切って」「この件でIssue立てて」「タスクとしてIssue化して」「Issueにまとめて」。タスク・バグ・要望の記録依頼全般に使用する。
+description: 新規 GitHub Issue を、リポジトリのテンプレート・命名・ラベル運用に合わせて即起票する。確認ゲートは置かず、情報不足でも仮決めで起票してから refine-issue を提案する。
 name: create-issue
 ---
 # 新規Issue起票

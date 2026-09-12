@@ -1,13 +1,6 @@
 ---
 name: pr-review
-description: |
-  PRの変更内容を構造的に解説し、汎用的なコード品質観点でレビューを行い、GitHubにレビューコメントを投稿する。
-  プロジェクト固有のチェックリストではなく、一般的なコード品質・安全性の観点を適用する。
-  このスキルは以下のような場面で使うこと:
-  - 「PRをレビューして」「PR #123をレビュー」「コードレビューして」
-  - GitHub PR URLが貼られた場合（例: https://github.com/.../pull/123）
-  - 「このPRどう思う？」「変更内容を確認して」のような間接的な依頼
-  コード修正は行わない。修正が必要な場合は resolve-review スキルに委譲する。
+description: PR の変更を構造的に解説し、汎用のコード品質・安全性観点でレビューして GitHub にコメントする。コード修正はしない（→ resolve-review）。
 argument-hint: "[PR番号 例: #123 / 123 / URL]"
 allowed-tools:
   - Agent

@@ -1,11 +1,6 @@
 ---
 name: explain-system
-description: |
-  既存コードがどう動くかを、実装せずに説明する。入口から出口まで手を振らず辿り、
-  置き場とつまずきを残す。問題定義（→ understand-problem）、これから書く構造
-  （→ design-code）、意図（なぜこうなったか）（→ evidence-discipline）は領分外。
-  トリガー: 「どう動く」「仕組みを説明して」「どこに置くべき」「どのパッケージが持つか」
-  「このレイヤでいいか」「ウォークスルー」「how does X work」。
+description: 既存コードがどう動き、どこに何があるかを、実装せず入口から出口まで辿って説明する。仕組み・置き場・流れの説明を求められたときに使う。
 argument-hint: "説明したいサブシステム・機能・処理の名前"
 license: Proprietary
 ---
