@@ -4,7 +4,7 @@
 # `herdr agent wait` returns early on the short state flickers a working agent
 # produces, so completion is confirmed as "idle seen, still idle N seconds
 # later". blocked gets the same debounce -- herdr's blocked detection had false
-# positives (measured on 0.7.5; not re-measured on 0.8.2).
+# positives (measured on 0.7.5; not re-measured on 0.8.2 or 0.9.0).
 #
 # usage: wait-settled.sh <agent-name> [timeout-seconds] [debounce-seconds]
 # exits 0 SETTLED / 2 TIMEBOX_EXCEEDED / 3 AGENT_GONE / 4 BLOCKED

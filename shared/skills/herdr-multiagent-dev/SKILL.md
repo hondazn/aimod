@@ -51,7 +51,7 @@ flowchart TD
 - **審査系の役割（plan-reviewer / reviewer）は非対話モードを既定にする**。`opencode run --dir <dir> -m <model> "<prompt>"` は TUI を起動せず1回の実行で完結し、出力が stdout にそのまま出る。ペイン作成・起動ゲート・状態ポーリング・折返しの復元がすべて不要になり、判定行のパースも確実になる。**Herdr ペインで動かす価値があるのは builder / fixer** — 実装中の様子を観察・介入したい役割だけ
 - **フォールバック時は前任が追っていた線を後任へ引き継ぐ**。中断は途中まで進んだ調査を持っているので、判定が出ていなくても「どこまで確認済みか」「中断直前に何を追っていたか」を回収して後任のプロンプトに載せる（実測: 引き継いだ線がそのまま不合格の根拠になった）。引き継ぎは時間配分の参考として渡し、後任自身の検証を省かせない
 - **役割ごとに `herdr tab create --workspace <自分のID>` で単独ペインのタブを使う**。同じタブを `pane split --direction right` で分割し続けると幅が狭まり、herdr の画面検知が外れて `agent_status` が working を idle と誤報する。誤報が疑われるときは画面に停止案内（`ctrl+c to stop` 等）が出ているかで判定する
-- **狭さの上限はターミナルウィンドウの幅であって、herdr の分割ではない**。`herdr pane layout --pane <id>` の `area.width` で実測できる。単独ペイン（`splits: []`）なら `pane resize` も `pane zoom` も効かない（zoom は `reason: "single_pane"` で無反応）。ウィンドウが狭い環境では、エージェント TUI がその幅でハード折返しした出力は `--source recent-unwrapped` でも復元できない（結合されるのはソフト折返しだけ）。判定行の契約は末尾行なので生き残るが、理由の本文は読めなくなる。空白を伴う改行を結合する後処理を挟むか、herdr スキルのファイル出力フォールバックを使う
+- **狭さの上限はターミナルウィンドウの幅であって、herdr の分割ではない**。`herdr pane layout --pane <id>` の `area.width` で実測できる。単独ペイン（`splits: []`）なら `pane resize` も `pane zoom` も効かない（zoom は `reason: "single_pane"` で無反応）。ウィンドウが狭い環境では、エージェント TUI がその幅でハード折返しした出力は `--source recent-unwrapped` でも復元できない（結合されるのはソフト折返しだけ）。判定行の契約は末尾行なので生き残るが、理由の本文は読めなくなる。空白を伴う改行を結合する後処理を挟むか、herdr スキルのファイル出力フォールバックを使う。0.9.0 はタブの寸法をクライアントごとに合わせる（#3526）ので、**幅の上限は要再測**
 - **他セッションと同居する前提で名前空間を分ける**。Herdr は複数の開発セッションが相乗りするので、次の2つを必ず守る（どちらも実測で事故になった）:
   - **`--workspace` を省略しない**。省略すると別セッションのワークスペースにタブが作られる。自分のIDは `herdr agent list` で自分のペイン（自分のセッションのタイトルが出ている行）から確認する
   - **エージェント名にプロジェクト接頭辞を付ける**（`kojo-builder` / `kojo-reviewer`）。herdr のエージェント名はグローバルで、`builder` `reviewer` のような一般名は他セッションと衝突する。`[a-z][a-z0-9_-]` の32文字以内に収める
@@ -103,7 +103,7 @@ roles:
     - { agent: <名前>, model: <上書きモデル>, effort: <推論努力>, extra_args: [<上書きargv>] }   # model 省略時は default_model。effort / extra_args は任意
 ```
 
-起動 argv への展開規則: `<cmd> <model_flag> <model> [<effort_args...>] <extra_args...>`。effort_args は roles のエントリに `effort` がある場合だけ挿入し、`{effort}` をその値で置換する（effort_args を持たないエージェントへの effort 指定は無視。cursor は effort をモデル名で表現する — プロファイル表参照）。roles のエントリに `extra_args` がある場合はエージェント定義の extra_args を**丸ごと置換**する（マージしない）。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
+起動 argv への展開規則: `<cmd> <model_flag> <model> [<effort_args...>] <extra_args...>`。`extra_args` の `{dir}` は作業ディレクトリ（`--cwd` に渡す絶対パス）で置換する。effort_args は roles のエントリに `effort` がある場合だけ挿入し、`{effort}` をその値で置換する（effort_args を持たないエージェントへの effort 指定は無視。cursor は effort をモデル名で表現する — プロファイル表参照）。roles のエントリに `extra_args` がある場合はエージェント定義の extra_args を**丸ごと置換**する（マージしない）。例えば builder の主担当（cursor / cursor-grok-4.5-high の場合）は:
 
 ```bash
 herdr agent start builder --cwd <dir> --split right --no-focus -- \
@@ -138,11 +138,11 @@ herdr agent start builder --cwd <dir> --split right --no-focus -- \
 
 **4. 失敗経路でも必ず回収と片付けを通す**: ログ退避 → `pane close`。省くとペインが残留し、原因調査に必要なログも失われる
 
-settled 待ちの早期リターン（0.7.5 で観測した、作業中の状態揺れによる誤判定）が 0.8.2 でも起きるかは**未再測**。当面は `tools/wait-settled.sh` のデバウンス付きで待つ。
+settled 待ちの早期リターン（0.7.5 で観測した、作業中の状態揺れによる誤判定）が 0.8.2 / 0.9.0 で起きるかは**未再測**。0.9.0 は揺れの原因をいくつか塞いだと変更履歴にある（Claude Code の背景タスク中の working 維持 #1630/#3090/#3414、Oh My Pi の継続中の idle 誤報 #2851/#3122）が、cursor / codex には記載が無い。当面は `tools/wait-settled.sh` のデバウンス付きで待つ。
 
 ## エージェント別プロファイル
 
-実測: Herdr 0.8.2 / 2026-08-29（cursor-agent v2026.08.25 / codex 0.149.1 と 0.150.1 / claude 2.1.251）。**無人化フラグを外して測っている** — 下表のフラグ自体の効果は未再測。
+実測: Herdr 0.8.2 / 2026-08-29（cursor-agent v2026.08.25 / codex 0.149.1 と 0.150.1 / claude 2.1.251）。**無人化フラグを外して測っている** — 下表のフラグ自体の効果は未再測。0.9.0 で `agent prompt` の送信と `--wait` の意味論が変わった（herdr スキル参照）ため、**「送信の癖」の列は要再測**。
 
 | エージェント | 無人化フラグ | 起動ゲート | 送信の癖 |
 |---|---|---|---|
@@ -154,7 +154,7 @@ settled 待ちの早期リターン（0.7.5 で観測した、作業中の状態
 - effort 指定（実測 2026-08-09・未再測）: claude `--effort low|medium|high|xhigh|max`（2.1.226）/ codex `-c model_reasoning_effort=<値>`（0.147.0。high のみ実測）/ cursor は独立フラグ無し — モデル名（`cursor-grok-4.5-high` 等）か bracket 構文（`'claude-opus-4-8[effort=high]'`）で表現
 - codex は状態行に使用量残量（`weekly N% left`）を表示する — フォールバック判定の補助材料
 - codex はサンドボックス外コマンドで本物の blocked（承認UI）になる。無人運用では `-a never` が必須
-- codex は alternate screen で動くため `agent read --source recent-unwrapped` が空を返す。画面は `--source visible` で読む（実測 2026-08-29）
+- codex は alternate screen で動くため `agent read --source recent-unwrapped` が空を返す。画面は `--source visible` で読む（実測 2026-08-29）。0.9.0 に「まだスクロールアウトしていない出力を recent 系の読み取りに含める」修正が入っている（#3444・未再測）
 - **バージョン更新時は再測定すること**（癖は非公開仕様であり変わりうる）
 
 ## 同梱の道具（[tools/](tools/)）
@@ -212,13 +212,14 @@ herdr agent prompt <name> "発注を <scratch>/PHASE7.md に置きました。�
 
 | 症状 | 原因と対処 |
 |---|---|
-| 送ったのに何も起きない | 0.8.2 は黙殺を自分で検出して `agent_prompt_stalled` / `agent_blocked` / `agent_not_ready` を返す。まず戻り値を見る。**例外は cursor の起動ゲート** — 拒否されないまま入力が消えるので、送信前に画面でゲートの不在を確かめる |
+| herdr のコマンドが軒並み `protocol_mismatch` を返す | クライアントだけ更新され、常駐サーバーが旧版のまま（実測 2026-09-10: client 0.9.0 / server 0.8.2 で `agent list` すら通らない）。`herdr status` の `restart_needed` / `server_binary_stale` で確認する。**復旧にはサーバー再起動が要り、ペインのプロセスが落ちる** — 自分の判断で `server stop` せず、人に判断を仰ぐ |
+| 送ったのに何も起きない | 0.8.2 以降は黙殺を自分で検出して `agent_prompt_stalled` / `agent_blocked` / `agent_not_ready` を返す。まず戻り値を見る。**`stalled` / `timeout` を再送の合図にしない** — 0.9.0 は送信を終えてから判定するので、届いた上で止まっている場合がある（herdr スキル）。**例外は cursor の起動ゲート** — 拒否されないまま入力が消えるので、送信前に画面でゲートの不在を確かめる |
 | `agent start` が invalid_agent_name で失敗 | エージェント名は `[a-z][a-z0-9_-]` の**32文字以内**（herdr の制約）。日付+アプリ名などの連結で超えやすい。直列実行なら名前からコンテキスト固有部を落として再利用してよい（同名残骸は起動前 close で回収） |
-| blocked と出たが動いている | 検知の偽陽性（0.7.5 実測・0.8.2 では未再測）。6秒後に再確認してから対処 |
+| blocked と出たが動いている | 検知の偽陽性（0.7.5 実測・0.8.2 / 0.9.0 では未再測）。6秒後に再確認してから対処 |
 | 合否が常に同じ値になる | プロンプトのエコーを拾っている。独立行契約 + 末尾から走査に切替 |
 | 長い出力が途中から読めない | alternate screen 落ち。herdr スキルのファイル出力フォールバックを使う |
 | `agent wait` の応答パースで落ちる | 完了応答が `result` キーを持たない JSON の場合がある。防御的にパースする |
-| 起動直後に `agent_prompt_stalled` が出てエージェントが消える | CLI が起動時に自己更新を走らせている（実測 2026-08-29: codex が 0.149.1 → 0.150.1 を更新して終了した）。`pane read` で画面を見て、更新なら再起動してから発注する。ready delay を延ばしても直らない |
+| 起動直後に `agent_prompt_stalled` が出てエージェントが消える | CLI が起動時に自己更新を走らせている（実測 2026-08-29: codex が 0.149.1 → 0.150.1 を更新して終了した）。`pane read` で画面を見て、更新なら再起動してから発注する。ready delay を延ばしても直らない。0.9.0 は codex の起動時更新ダイアログを blocked として検知するとある（#3632・未再測）ので、`agent_blocked` として出ることがある |
 | 修正ループが止まらない | fixer は 1回だけと決めておく。だめなら打ち切り、失敗として記録 |
 | レビューが細部指摘で埋まる | reviewer のスコープを fatal + 受け入れ条件のみに契約で限定する |
 | claude が承認ダイアログで止まる | `--permission-mode acceptEdits` は編集しか通さず、tmp 書込や `npx` 実行で blocked になる。`auto` を使う。無人化フラグは**このプロファイル表ではなく `agents.yaml` が起動 argv の正本**なので、両者の食い違いを疑う（2026-08-17 に実際に食い違っていた） |

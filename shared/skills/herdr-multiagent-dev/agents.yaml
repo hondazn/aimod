@@ -20,9 +20,19 @@ agents:
     model_flag: "-m"
     effort_args: ["-c", "model_reasoning_effort={effort}"]  # high のみ実測（codex-cli 0.147.0）。他値は要実測
     default_model: gpt-5.6-terra
-    extra_args: ["-a", "never", "-s", "workspace-write"]  # 承認UIを出さない+WS内書込
+    extra_args: ["-a", "never", "-s", "workspace-write", "--add-dir", "{dir}/.git"]  # 承認UIを出さない+WS内書込
+    # {dir} は作業ディレクトリ。workspace-write は .git を読み取り専用にし、git add が
+    # `.git/index.lock: Read-only file system` で落ちる（2026-09-11 実測、codex 0.154.0。
+    # 同じセッションで 1 回目の commit は通り 2 回目が落ちた）。--add-dir で .git を書込可にすると
+    # 続く 5 セッションで再発しなかった。codex exec でも同じ。
     # サンドボックスは外部プロセス起動やネットワークを遮断する。それに依存するテストは
     # codex 環境でだけ落ちるため、レビュー契約で除外し、指揮者が自分の環境で実測して確定する。
+    # サンドボックス内の `bash -lc` はログインシェルの環境を引き継ぐ。**Rust 固有**: 
+    # RUSTC_WRAPPER=sccache が `Operation not permitted` になり、CARGO_TARGET_DIR が無いと
+    # リポジトリ直下の target/ にビルドが落ちる（2026-09-11 実測）。Rust のプロジェクトでは
+    # 契約に `RUSTC_WRAPPER= CARGO_TARGET_DIR=<絶対パス>` の前置を書く。他の言語のビルド系にも
+    # 同種の問題（ラッパーやキャッシュ先が書けない）が起きうるので、最初の 1 セッションのログで
+    # 環境の失敗と実装の判定が混ざっていないかを見る。
     credit_error_patterns:
       - "usage limit"
       - "rate limit"
