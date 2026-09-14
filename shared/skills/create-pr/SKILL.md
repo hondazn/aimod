@@ -16,8 +16,7 @@ $ARGUMENTS
 
 ## 目的
 
-**「このPRだけ読んでレビュアーが変更意図・検証方法・確認ポイントを把握できる」**状態で PR を起票する。
-完璧を目指さず、仮決めで即起票する。レビュー時の確認ポイントは末尾のチェックリストに集約し、レビュアーとのコミュニケーション起点を明示する。
+**「このPRだけ読んでレビュアーが変更意図・検証方法・確認ポイントを把握できる」**状態で PR を起票する。完璧を目指さず、仮決めで即起票する。レビュー時の確認ポイントは末尾のチェックリストに集約し、レビュアーとのコミュニケーション起点を明示する。
 
 このスキルが存在する理由:
 
@@ -302,6 +301,12 @@ rm -f /tmp/pr-body-$$.md
 
 `gh pr create` は作成された PR の URL を返すので、URL と PR 番号を記録する。
 
+### 4-3A. 積み重ねた PR はネイティブの stack に載せる
+
+依存する PR を積むときは、GitHub のネイティブな stack と `gh stack` を使う。個別 PR を `gh pr merge` と `gh pr edit` で継ぎ足して stack の意味を再現しない。stack 所属の正本は base ブランチの推測ではなく `PullRequest.stack` / `stackEntry.position` に置く。
+
+GitHub の状態を変える前に `gh stack --version` を実行する。公式拡張またはサーバ側の stack 機能が無ければ、そこで止める（代替の手順に流れない）。既存の stack を自動で分解・並べ替え・再構築しない。`gh stack link` は追加のみで、マージ済み・キュー済みのエントリは外せない。
+
 ### 4-4. エラーハンドリング
 
 - push 未実施エラー → Phase 1-1 で確認済みなら起きないはず。起きたら push 実行の可否を確認
@@ -423,11 +428,7 @@ Closes #8
 
 - [x] サンプル `SKILL.md`（`shared/skills/create-issue/SKILL.md`）に対して手動実行し、意味のある指摘 5 件を取得:
   ```
-  findings[0] severity=suggestion category=文体 "敬体と常体の混在"
-  findings[1] severity=nit    category=表記 "『エージェント』と『agent』の表記揺れ"
-  findings[2] severity=suggestion category=語彙 "『〜すること』の重複"
-  findings[3] severity=nit    category=表記 "半角英数の前後スペース不足"
-  findings[4] severity=good   category=構造 "見出し階層に一貫性あり"
+  findings[0] severity=suggestion category=文体 "敬体と常体の混在" findings[1] severity=nit    category=表記 "『エージェント』と『agent』の表記揺れ" findings[2] severity=suggestion category=語彙 "『〜すること』の重複" findings[3] severity=nit    category=表記 "半角英数の前後スペース不足" findings[4] severity=good   category=構造 "見出し階層に一貫性あり"
   ```
 - [x] 既存 3 reviewer と JSON スキーマが揃うことを目視確認（`severity`/`category`/`message`/`suggestion` フィールド）
 
