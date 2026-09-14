@@ -31,9 +31,12 @@ opencode/        ← opencode用のツール固有設定（config と plugins �
   plugins/
 scripts/
   deploy.sh / undeploy.sh / manage-codex-statusline.sh
+  check-skills.sh              # shared/skills の frontmatter・相対リンク・呼び出し制御を機械検査
+  check-md-wrap.sh             # Markdown の1段落1物理行を機械検査
   opencode-agent-transform.sh  # shared/agents → .opencode-agents/（opencode 形式へ変換）
 tests/
   agents-skills-deploy-test.sh / codex-statusline-config-test.sh / opencode-agents-test.sh / opencode-config-test.sh / pr-review-lead-judgment-test.sh
+  skills-lint-test.sh / decision-log-test.sh / md-wrap-test.sh
 ```
 
 **設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor / opencode へ配る（Codex は同型の agents をサポートしない）。opencode は色スキーマが異なり `mode` 既定が `all` のため、`shared/agents` をそのままリンクせず `opencode-agent-transform.sh` で変換したものを `.opencode-agents/` に生成してリンクする。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。opencode の instructions は `~/.config/opencode/AGENTS.md`（`~/.claude/CLAUDE.md` フォールバックより優先 — 後述）、skills は Claude Code 互換の `~/.claude/skills` 自動ロードで届く。skills は cross-client 規約の `~/.agents/skills` にもスキル単位で配る（後述）。
@@ -86,6 +89,36 @@ Cursor 本来の rules 機構は別にあり、いずれも今回は使ってい
 | opencode | 1.18.30 | 読む。`~/.claude/skills` と同名だと `duplicate skill name` WARN が出るが、後勝ちで同一実体なので実害なし（aimod 31 スキルで WARN 31 件を確認） |
 
 Claude Code だけが例外なので `~/.claude/skills` は維持し、`~/.agents/skills` は残り3ツール向けの追加経路として配る。Claude Code のバイナリに `~/.agents/skills` の文字列があるのは Cursor 設定を取り込む `claude import` 用で、ネイティブロードではない。バージョン更新時は上表を再測定すること。
+
+**`disable-model-invocation: true` の解釈はクライアントごとに割れる。** 実測（2026-09-15）:
+
+| クライアント | フラグ | 根拠と確度 |
+|---|---|---|
+| Claude Code 2.1.270 | 尊重する | ネイティブバイナリ（`~/.local/share/claude/versions/2.1.270`）の frontmatter スキーマに `"disable-model-invocation": …describe("If true, the model cannot invoke this via the Skill tool; only users can type the slash command.")`。スキーマ由来で、実セッションでの一覧除外は未確認 |
+| cursor-agent 2026.09.10-fd3934a | 尊重する | `versions/<v>/index.js` が `disableModelInvocation: !0===n.data?.["disable-model-invocation"]` として厳密一致で取り込む。ローダ由来で、一覧のフィルタは未確認 |
+| DSH | 尊重する | カタログ実測。`~/.agents/skills` に配置済みの `grill-me` だけがスキル一覧に現れない |
+| Codex CLI 0.154.0 | **無視する**（専用の別機構あり） | 実測。`codex debug prompt-input`（モデル可視プロンプト）に `- grill-me: … (file: r0/grill-me/SKILL.md)` が載る。Codex は frontmatter ではなくスキル直下の `agents/openai.yaml` を見る（下の実測表） |
+| opencode 1.18.30 | **無視する** | 実測。`opencode debug skill` の一覧に `grill-me` が出る。docs の frontmatter 許容集合は `name` / `description` / `license` / `compatibility` / `metadata` のみ |
+
+したがって **フラグだけでは「モデルが自動選択しない」を4ツールで保証できない。** `grill-me` は ① frontmatter のフラグ ② description の「`/grill-me` と打たれたときだけ使う。モデルは自動選択してはならない。」 ③ Codex 用の `agents/openai.yaml` の三重重ねで手動専用を宣言している。③ が要るのは、Codex が frontmatter を無視する代わりに自前のフィールドを持つため。opencode には相当するフィールドが無いので、そこでは ② の一文が唯一の防御になる。この整合は `scripts/check-skills.sh` が検査する（フラグ付きスキルが description でも手動起動を宣言していなければ落ちる／`agents/openai.yaml` が無いか食い違っていても落ちる）。
+
+**Codex の呼び出し制御は `agents/openai.yaml` の `policy.allow_implicit_invocation`。** 実測（2026-09-15 / Codex CLI 0.154.0 / `~/.codex/skills/zz-probe/` に置いた計測用スキルを `codex debug prompt-input` のモデル可視プロンプトで数えた）:
+
+| 条件 | モデル可視プロンプトに出るか |
+|---|---|
+| frontmatter `disable-model-invocation: true` のみ | **出る（無視される）** |
+| 上記 + `agents/openai.yaml` に `allow_implicit_invocation: false` | **出ない（効く）** |
+| 上記 + `allow_implicit_invocation: true` | 出る（yaml が読まれている対照） |
+| `allow_implicit_invocation: false` のみ（frontmatter フラグ無し） | 出ない |
+
+Codex のバイナリにも `allow_implicit_invocation` は実在する（0.154.0 に13箇所）。pstack は同じ結論に達しており、`host-adapters.mjs` が Claude 用 frontmatter と Codex 用 `agents/openai.yaml` を**ホスト別に生成**している（同リポジトリの `adapters/` は claude-code と codex の2ホスト分）。したがって Codex を手動専用にするには、フラグと yaml を**必ず対で**書く。
+
+Codex と opencode の判定は LLM を呼ばずに再測定できる:
+
+```bash
+codex debug prompt-input ping | grep -c grill-me   # 1 以上なら無視されている
+opencode debug skill | grep -c grill-me            # opencode は $HOME への書き込み許可が要る。yaml を知らないので 1 のまま
+```
 
 **opencode への配り方（ソース `anomalyco/opencode` と実測で確認済み）:**
 
@@ -153,9 +186,13 @@ aimod は worktree 関連のフックを配らない。Claude Code 本体が同�
 
 ## スキル・エージェントの追加
 
-- **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/deploy.sh`
+- **スキル追加**: `shared/skills/<skill-name>/SKILL.md` を作成 → `./scripts/check-skills.sh` → `./scripts/deploy.sh`
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude / Cursor / opencode へ配布。opencode 用の変換は `deploy.sh` が自動実行）→ `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
+- **追加時の検査**: `./scripts/check-skills.sh` が、SKILL.md の存在、frontmatter の `name` とディレクトリ名の一致、kebab-case、`description` の1行・200字以内、相対リンクの解決（スキルディレクトリ外への逸脱を含む）、呼び出し制御フラグの値と二重化を機械的に検査する。契約は `tests/skills-lint-test.sh` が固定する。リンク検査はフェンス付きコードブロックとインラインコードを除外するため、例示した `![](...)` は参照切れとして数えない
+- **呼び出し制御**: `disable-model-invocation: true` のスキルは description でも手動起動を宣言し（`/name` か「手動起動」「自動選択してはならない」）、**さらに `agents/openai.yaml` に `policy.allow_implicit_invocation: false` を併置する**。値は `true` / `false` のみ、キーは kebab-case（yaml は snake_case）のみ。フラグ・yaml・description の3点が揃っていないと `./scripts/check-skills.sh` が落ちる。理由は上の実測表（Claude Code / cursor / DSH は frontmatter、Codex は yaml、opencode は description が唯一の防御）
+- **Markdown は1段落1物理行**: 段落・リスト項目の途中で折り返さない。表・見出し・フェンス・インデント付きコードブロックは対象外。`./scripts/check-md-wrap.sh` が検査し、契約は `tests/md-wrap-test.sh` が固定する。対象は `shared/`（`skills-archive` を除く）と `README.md` / `CLAUDE.md` で、凍結記録の `docs/specs/` は含めない。フェンスの開閉は CommonMark の規則（同じマーカー・同数以上・インデント3以下）で判定する — 単純なトグルだとコード例の中のフェンス行で状態がずれ、コードブロックを段落として結合してしまう
+- **外部スキルの取り込み**: 逐語コピーせず日本語で再構成し、本文末尾に `## 出典`（原典 URL・ライセンス・再構成時点）を置く
 - **description は短く**: 一覧として毎セッション全スキル分がロードされるため、「何をするか + いつ使うか」を 1〜2 文（目安 200 字以内）で書く。Codex は実測で約 328 字で切り詰めるため、長いトリガー列挙は末尾から失われる。領分・手順の詳細は本文か補助ファイルへ置く（progressive disclosure）
 - **スキル退避**: 使用頻度が低いスキルは `git mv shared/skills/<name> shared/skills-archive/<name>` でデプロイ対象から外す（deploy.sh の変更は不要。Claude/Cursor はディレクトリ symlink が即追随し、Codex と `~/.agents/skills` の残骸リンクは次回 deploy の `prune_stale_link` が除去する）。復帰は逆向きに `git mv` して `./scripts/deploy.sh`。退避時は残存スキルからの参照切れを grep で確認すること
 

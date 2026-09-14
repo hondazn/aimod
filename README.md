@@ -38,6 +38,7 @@ opencode/           # opencode.json + ローカル plugins の正本
 scripts/
   deploy.sh
   undeploy.sh
+  check-skills.sh              # shared/skills の frontmatter と相対リンクを検査
   opencode-agent-transform.sh  # shared/agents を opencode 形式へ変換（.opencode-agents/ に生成）
 ```
 
@@ -79,6 +80,8 @@ opencode の config は起動時に厳格に検証され、不正なフィール
 # スキル
 mkdir -p shared/skills/my-skill
 # shared/skills/my-skill/SKILL.md を書く
+./scripts/check-skills.sh   # name とディレクトリ名の一致・kebab-case・description の1行200字以内・相対リンク・呼び出し制御を検査
+./scripts/check-md-wrap.sh  # 1段落1物理行（折り返しの禁止）を検査
 ./scripts/deploy.sh
 
 # エージェント（Claude / Cursor / opencode）
@@ -87,6 +90,12 @@ mkdir -p shared/skills/my-skill
 ```
 
 `shared/instructions.md` はグローバル設定として毎セッション全文がロードされるため、足してよいのは常に効く汎用ルールだけ。特定作業の知識はスキル本文へ、特定スキルからしか参照しない長大な参照表はそのスキルの補助ファイル（`shared/skills/<skill>/`）として置く。
+
+外部のスキルを再構成して取り込んだ場合は、本文末尾に `## 出典`（原典 URL・ライセンス・再構成時点）を置く。
+
+Markdown は **1段落1物理行**で書く（段落・リスト項目・引用の途中で折り返さない）。表・見出し・フェンス付きコードブロックは各行が独立した行なので対象外。`./scripts/check-md-wrap.sh` がこれを検査する。行の折り返しは diff の粒度を壊し、段落の追加・削除を1行で読めなくするため。
+
+モデルに自動選択させたくないスキルは `disable-model-invocation: true` を付け、**同時に** description へ `/name` と「モデルは自動選択してはならない」を書き、**さらに `agents/openai.yaml` に `policy: allow_implicit_invocation: false` を置く**。frontmatter のフラグは Claude Code / cursor-agent / DSH が尊重するが **Codex は無視する**（代わりに yaml を見る。実測表は [`CLAUDE.md`](CLAUDE.md)）。opencode はどちらも持たないので description の一文が唯一の防御になる。`check-skills.sh` がこの3点の整合を検査する。
 
 ### gh skill について
 
