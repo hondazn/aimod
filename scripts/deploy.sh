@@ -159,13 +159,31 @@ for entry in "$HOME/.codex/skills"/*; do
   prune_stale_link "$entry"
 done
 
+# Skills — per skill for the cross-client ~/.agents/skills convention. Cursor, Codex
+# and opencode all scan it; Claude Code does not (it keeps ~/.claude/skills). Linked
+# per entry and guarded so the skills CLI and other clients can install their own
+# skills in the same directory without aimod clobbering them.
+if [[ -L "$HOME/.agents/skills" ]] && ! is_ours "$HOME/.agents/skills"; then
+  log "SKIP $HOME/.agents/skills (symlink managed outside aimod)"
+else
+  mkdir -p "$HOME/.agents/skills"
+  for skill in "$ROOT/shared/skills"/*; do
+    [[ -d "$skill" ]] || continue
+    link_guarded_path "$skill" "$HOME/.agents/skills/$(basename "$skill")" || true
+  done
+  for entry in "$HOME/.agents/skills"/*; do
+    prune_stale_link "$entry"
+  done
+fi
+
 # opencode: global instructions are read from ~/.config/opencode/AGENTS.md, which wins
 # over the ~/.claude/CLAUDE.md fallback (no double load). Agents must live in
 # ~/.config/opencode/agents — opencode does not read ~/.claude/agents — and need
 # opencode-valid colors plus mode: subagent, so they are generated from shared/agents.
-# Skills need no opencode deploy: opencode auto-loads ~/.claude/skills (Claude Code
-# compatibility), and duplicating them under ~/.config/opencode/skills would break
-# opencode's unique-skill-name requirement.
+# Skills need no opencode deploy: it auto-loads ~/.claude/skills and ~/.agents/skills.
+# A name present in both logs a `duplicate skill name` warning, but both links point
+# at the same files, so the loaded content is identical. ~/.config/opencode/skills
+# would only add a third copy of every name.
 link_guarded_path "$ROOT/shared/instructions.md" "$HOME/.config/opencode/AGENTS.md" || true
 "$ROOT/scripts/opencode-agent-transform.sh"
 link "$ROOT/.opencode-agents" "$HOME/.config/opencode/agents"

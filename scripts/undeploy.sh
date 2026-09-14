@@ -39,6 +39,15 @@ unlink_if_ours "$HOME/.cursor/agents"
 unlink_if_ours "$HOME/.claude/skills"
 unlink_if_ours "$HOME/.cursor/skills"
 
+# ~/.agents/skills is shared with other clients (the skills CLI installs there), so
+# sweep rather than unlink the directory: only aimod's per-entry links are removed.
+if [[ -d "$HOME/.agents/skills" ]]; then
+  shopt -s nullglob
+  for entry in "$HOME/.agents/skills"/*; do
+    unlink_if_ours "$entry"
+  done
+fi
+
 unlink_if_ours "$HOME/.config/opencode/AGENTS.md"
 unlink_if_ours "$HOME/.config/opencode/agents"
 

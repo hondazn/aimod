@@ -33,10 +33,10 @@ scripts/
   deploy.sh / undeploy.sh / manage-codex-statusline.sh
   opencode-agent-transform.sh  # shared/agents → .opencode-agents/（opencode 形式へ変換）
 tests/
-  codex-statusline-config-test.sh / opencode-agents-test.sh / opencode-config-test.sh
+  agents-skills-deploy-test.sh / codex-statusline-config-test.sh / opencode-agents-test.sh / opencode-config-test.sh / pr-review-lead-judgment-test.sh
 ```
 
-**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor / opencode へ配る（Codex は同型の agents をサポートしない）。opencode は色スキーマが異なり `mode` 既定が `all` のため、`shared/agents` をそのままリンクせず `opencode-agent-transform.sh` で変換したものを `.opencode-agents/` に生成してリンクする。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。opencode の instructions は `~/.config/opencode/AGENTS.md`（`~/.claude/CLAUDE.md` フォールバックより優先 — 後述）、skills は Claude Code 互換の `~/.claude/skills` 自動ロードで届く。
+**設計方針**: `shared/` に実体を置き、`deploy.sh` がホームディレクトリへ直接 symlink する。agents は Claude / Cursor / opencode へ配る（Codex は同型の agents をサポートしない）。opencode は色スキーマが異なり `mode` 既定が `all` のため、`shared/agents` をそのままリンクせず `opencode-agent-transform.sh` で変換したものを `.opencode-agents/` に生成してリンクする。Codex skills は `~/.codex/skills/.system` 共存のためスキル単位でリンクする。Cursor へは instructions を `~/AGENTS.md` として配る（ワークスペースから上へ辿って拾われる唯一の経路 — 後述）。opencode の instructions は `~/.config/opencode/AGENTS.md`（`~/.claude/CLAUDE.md` フォールバックより優先 — 後述）、skills は Claude Code 互換の `~/.claude/skills` 自動ロードで届く。skills は cross-client 規約の `~/.agents/skills` にもスキル単位で配る（後述）。
 
 `claude/` / `cursor/` / `codex/` 配下の symlink は repo 内から辿るための**参照用ミラーであり、網羅的ではない**（例: `codex/` に skills のミラーは無い）。正本は常に `shared/`、実際の配置先は `deploy.sh` が唯一の真実。ミラーを増やすと追加のたび手作業が要りズレの再発源になるため、意図的に揃えていない。
 
@@ -76,12 +76,23 @@ Cursor 本来の rules 機構は別にあり、いずれも今回は使ってい
 
 いずれも `cursor-agent -p` にロード済みコンテキストを照会した**自己申告ベースの間接的な確認**で、CLI 1 バージョン・1 モデルでの結果。**Cursor IDE の挙動は未確認**。バージョン更新時と Cursor 向けデプロイを変える前に再確認すること。
 
+**cross-client 規約 `~/.agents/skills` は Cursor / Codex / opencode が読む。** 実測（2026-09-15）: `~/.agents/skills/<name>` に per-entry symlink を置き、各 CLI にその description を出力させた結果:
+
+| ツール | バージョン | `~/.agents/skills` |
+|---|---|---|
+| Claude Code | 2.1.270 | **読まない**（NONE）。ユーザーレベルは `~/.claude/skills` のみ |
+| cursor-agent | 2026.09.10-fd3934a | 読む |
+| Codex CLI | 0.154.0 | 読む |
+| opencode | 1.18.30 | 読む。`~/.claude/skills` と同名だと `duplicate skill name` WARN が出るが、後勝ちで同一実体なので実害なし（aimod 31 スキルで WARN 31 件を確認） |
+
+Claude Code だけが例外なので `~/.claude/skills` は維持し、`~/.agents/skills` は残り3ツール向けの追加経路として配る。Claude Code のバイナリに `~/.agents/skills` の文字列があるのは Cursor 設定を取り込む `claude import` 用で、ネイティブロードではない。バージョン更新時は上表を再測定すること。
+
 **opencode への配り方（ソース `anomalyco/opencode` と実測で確認済み）:**
 
 | 項目 | 経路 | 根拠 |
 |---|---|---|
 | 指示 | `~/.config/opencode/AGENTS.md`。**あれば `~/.claude/CLAUDE.md` は読まれない**（グローバルは first-match、積み重ねなし） | `session/instruction.ts` の `globalFiles` ループ。デプロイ前はフォールバックの `~/.claude/CLAUDE.md` 経由でロードされる実測あり |
-| スキル | `~/.claude/skills` を自動ロード（Claude Code 互換）。**`~/.config/opencode/skills` には配置しない**（名前の重複が公式のトラブルシュート対象） | 本セッションで aimod の全 25 スキルが `<available_skills>` に列挙された。docs/skills の「スキル名は全配置先でユニークに」 |
+| スキル | `~/.claude/skills` と `~/.agents/skills` を自動ロード。**`~/.config/opencode/skills` には配置しない**（3つ目の同名コピーになるだけ） | 実測で両経路からロードされ、同名は `duplicate skill name` WARN + 後勝ち。`~/.agents/skills` は cross-client 規約として配る（後述） |
 | agents | `~/.claude/agents` は**読まない**。`~/.config/opencode/agents/*.md` が正規 | docs/agents。`config/agent.ts` の `Glob.scan("{agent,agents}/**/*.md")` は `~/.config/opencode` 配下のみ |
 
 `shared/agents` をそのままリンクできない理由（opencode の検証が厳格で、不正なフィールドは config ロードごと死ぬ）: ① `color` は `#RRGGBB` かテーマ色（`primary`/`secondary`/`accent`/`success`/`warning`/`error`/`info`）のみで、Claude Code の色名（`red` 等）は decode 失敗 → `ConfigAgent.load` が throw（`config/config.ts` は catch しない）② `mode` 未指定は `all` になり、14 体がプライマリの Tab 切替に並ぶ。そのため `opencode-agent-transform.sh` が `mode: subagent` を注入し、色名を hex へ写像する（`name`/`description`/本文は忠実コピー）。
@@ -104,12 +115,13 @@ Cursor 用の `~/AGENTS.md` が opencode に漏れない理由: プロジェク�
 - `shared/agents`（`opencode-agent-transform.sh` で変換）→ `.opencode-agents/`（生成物）→ `~/.config/opencode/agents`（opencode 用。`mode: subagent` 注入 + 色名を hex へ写像）
 - `shared/skills` → `~/.claude/skills`, `~/.cursor/skills`
 - `shared/skills/<name>` → `~/.codex/skills/<name>`（`.system` は触らない）
+- `shared/skills/<name>` → `~/.agents/skills/<name>`（cross-client 規約。Cursor / Codex / opencode が読む。Claude Code は読まないため `~/.claude/skills` は維持。スキル単位の guarded link で、skills CLI 等が置いたエントリは SKIP して共存する）
 
 `~/AGENTS.md` は `link_guarded_path` を通す。他ツールやユーザー自身のファイルと共有しうるため、**aimod 由来でないものは一切壊さない**（同名の実体・外部管理 symlink は SKIP し、そのエントリだけ諦めて他のデプロイは続行する）。
 
 rules カテゴリは廃止済みで、`deploy.sh` は過去バージョンが張った `~/.claude/rules` / `~/.codex/rules` / `~/.cursor/rules` 配下の aimod 由来リンクを削除する（`migrate:` としてログに出る。`is_ours` 判定を通すので他ツールやユーザー自身のファイルは残り、`~/.cursor/rules` は空になればディレクトリごと畳む）。
 
-Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink なので削除に自動追随するが、Codex skills はエントリ単位のため取り残しが出る。`deploy.sh` はリンク作成後に `prune_stale_link` で、**aimod 由来かつリンク先が消えた** symlink だけを除去する（`.system`・実体・外部ツール管理のリンクは `is_ours` 判定で保護）。
+Claude / Cursor の `skills` はディレクトリ丸ごと 1 本の symlink なので削除に自動追随するが、Codex skills と `~/.agents/skills` はエントリ単位のため取り残しが出る。`deploy.sh` はリンク作成後に `prune_stale_link` で、**aimod 由来かつリンク先が消えた** symlink だけを除去する（`.system`・実体・外部ツール管理のリンクは `is_ours` 判定で保護）。
 
 なお `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` は aimod が所有権を持つ配置先として、既存の実体があれば `replace non-symlink` をログに出して置換する（SKIP しない）。ここを SKIP にすると、既存ファイルのあるマシンで初回デプロイが何も反映されなくなるため。
 - `claude/settings.json` → `~/.claude/settings.json`
@@ -123,7 +135,7 @@ opencode の config は厳格に検証され、フィールドを間違えると
 
 Codex は Claude のような command-based status line をサポートせず、組み込み項目 ID の配列を `tui.status_line` に設定する。`deploy.sh` はこのキーだけを追加・置換する。`undeploy.sh` は現在値が `codex/statusline.toml` と完全一致する場合だけ削除し、ユーザーが変更した値は残す。
 
-管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`, `~/.claude/hooks/`, `~/.config/opencode/opencode.json` 以外の `~/.config/opencode` 配下（`package.json` / `node_modules` 等のプラグイン依存解決用ファイル）
+管理しない: `~/.codex/config.toml` のその他の設定, auth / credentials, `~/.cursor/cli-config.json`, `~/.cursor/skills-cursor/`, `~/.claude/hooks/`, `~/.agents/skills` 配下の aimod 由来でないエントリ（skills CLI 等のインストール先。スキル単位の guarded link で保護）, `~/.config/opencode/opencode.json` 以外の `~/.config/opencode` 配下（`package.json` / `node_modules` 等のプラグイン依存解決用ファイル）
 
 ### worktree の強制は本体設定を使い、既定は無効
 
@@ -145,7 +157,7 @@ aimod は worktree 関連のフックを配らない。Claude Code 本体が同�
 - **エージェント追加**: `shared/agents/<agent-name>.md` を作成（Claude / Cursor / opencode へ配布。opencode 用の変換は `deploy.sh` が自動実行）→ `./scripts/deploy.sh`
 - 補助ファイル（EXAMPLES.md、TEMPLATES.md等）は同じディレクトリに配置可能
 - **description は短く**: 一覧として毎セッション全スキル分がロードされるため、「何をするか + いつ使うか」を 1〜2 文（目安 200 字以内）で書く。Codex は実測で約 328 字で切り詰めるため、長いトリガー列挙は末尾から失われる。領分・手順の詳細は本文か補助ファイルへ置く（progressive disclosure）
-- **スキル退避**: 使用頻度が低いスキルは `git mv shared/skills/<name> shared/skills-archive/<name>` でデプロイ対象から外す（deploy.sh の変更は不要。Claude/Cursor はディレクトリ symlink が即追随し、Codex の残骸リンクは次回 deploy の `prune_stale_link` が除去する）。復帰は逆向きに `git mv` して `./scripts/deploy.sh`。退避時は残存スキルからの参照切れを grep で確認すること
+- **スキル退避**: 使用頻度が低いスキルは `git mv shared/skills/<name> shared/skills-archive/<name>` でデプロイ対象から外す（deploy.sh の変更は不要。Claude/Cursor はディレクトリ symlink が即追随し、Codex と `~/.agents/skills` の残骸リンクは次回 deploy の `prune_stale_link` が除去する）。復帰は逆向きに `git mv` して `./scripts/deploy.sh`。退避時は残存スキルからの参照切れを grep で確認すること
 
 `shared/instructions.md` に足してよいのは作業種別を問わず常に効く汎用ルールだけ（グローバル設定として毎セッション全文ロードされる）。特定作業の知識はスキル本文へ、特定スキルからしか参照しない長大な参照表はそのスキルの補助ファイルとして `shared/skills/<skill>/` に置くこと（例: `pr-review/REVIEW-BADGES.md`）。
 
