@@ -1,6 +1,6 @@
 ---
 name: consult-specialists
-description: 単一の正解がない判断を、専門家サブエージェント群の多視点で検証する。設計・方針・優先順位の相談や、リリース前のセルフレビューで使う。PR の構造化レビューは pr-review を優先する。
+description: 単一の正解がない判断を、専門家サブエージェント群の多視点で検証する。設計・方針・優先順位の相談や、リリース前のセルフレビューで使う。PR の構造化レビューは対象外（→ pr-review）。
 ---
 
 # consult-specialists
@@ -113,7 +113,7 @@ Agent({
 
 - 単純な事実確認・コード片の生成（直接やる方が早い）
 - 既に十分な情報が揃っていて、ユーザーの依頼が「これを実行して」のみ
-- PR の構造化レビュー → `pr-review` スキルを使う
+- PR の構造化レビュー（このスキルの対象外）
 - 大きめの実装着手 → `superpowers:brainstorming` → `superpowers:writing-plans` → `superpowers:executing-plans`（その中で必要に応じてこのスキルを併用）
 
 ## 失敗とみなすもの
