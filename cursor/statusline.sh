@@ -39,12 +39,13 @@ git_c() {
   fi
 }
 
+# nameref (local -n) is bash 4.3+; Cursor CLI shebang is /usr/bin/env bash → macOS 3.2
 append() {
-  local -n _buf=$1
+  local buf=$1
   local val=$2
-  [ -z "$val" ] && return
-  [ -n "$_buf" ] && _buf+="  "
-  _buf+="$val"
+  [ -z "$val" ] && { printf '%s' "$buf"; return; }
+  [ -n "$buf" ] && printf '%s  %s' "$buf" "$val" && return
+  printf '%s' "$val"
 }
 
 DIR=""
@@ -151,17 +152,17 @@ ctx_txt=""
 [ -n "$USED" ] && ctx_txt="${ctx_txt:+$ctx_txt  }${USED}%"
 
 L1=""
-[ -n "$VER" ] && append L1 "$(fg "$C_DIM")${VER}${RST}"
-[ -n "$MODEL" ] && append L1 "$(fg "$C_MODEL")${MODEL}${RST}"
+[ -n "$VER" ] && L1=$(append "$L1" "$(fg "$C_DIM")${VER}${RST}")
+[ -n "$MODEL" ] && L1=$(append "$L1" "$(fg "$C_MODEL")${MODEL}${RST}")
 if [ -n "$PARAM_SUMMARY" ]; then
   ps="${PARAM_SUMMARY#(}"
   ps="${ps%)}"
-  append L1 "$(fg "$C_MODE")${ps}${RST}"
+  L1=$(append "$L1" "$(fg "$C_MODE")${ps}${RST}")
 fi
-[ "$MAX_MODE" = "true" ] && append L1 "$(fg "$C_MODE")max${RST}"
-[ -n "$STYLE" ] && [ "$STYLE" != "default" ] && append L1 "$(fg "$C_MODE")${STYLE}${RST}"
-[ "$AUTORUN" = "true" ] && append L1 "$(fg "$C_MODE")autorun${RST}"
-[ -n "$ctx_txt" ] && append L1 "$(fg "$ctx_color")ctx ${ctx_txt}${RST}"
+[ "$MAX_MODE" = "true" ] && L1=$(append "$L1" "$(fg "$C_MODE")max${RST}")
+[ -n "$STYLE" ] && [ "$STYLE" != "default" ] && L1=$(append "$L1" "$(fg "$C_MODE")${STYLE}${RST}")
+[ "$AUTORUN" = "true" ] && L1=$(append "$L1" "$(fg "$C_MODE")autorun${RST}")
+[ -n "$ctx_txt" ] && L1=$(append "$L1" "$(fg "$ctx_color")ctx ${ctx_txt}${RST}")
 
 LOC=""
 if [ -n "$WORKTREE" ]; then
@@ -199,10 +200,10 @@ if [ -n "$PR_NUM" ]; then
 fi
 
 L2=""
-append L2 "$REPO_TXT"
-append L2 "$LOC"
-append L2 "$GSTAT"
-append L2 "$PR_TXT"
+L2=$(append "$L2" "$REPO_TXT")
+L2=$(append "$L2" "$LOC")
+L2=$(append "$L2" "$GSTAT")
+L2=$(append "$L2" "$PR_TXT")
 
 printf '%s' "$RST"
 [ -n "$L1" ] && printf '%s\n' "$L1"
