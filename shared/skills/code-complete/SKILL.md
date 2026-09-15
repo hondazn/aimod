@@ -1,11 +1,11 @@
 ---
-name: code-perfection
+name: code-complete
 description: 開発ループ（探索→モデル化→TDD→学習）のハブ。進め方が定まっていないコード変更で、工程の順序と戻り先、単位ごとの確認を司る。設計だけの相談は領分外（→ design-code）。
 argument-hint: "開発したい機能・解きたい問題・Issue URL"
 license: Proprietary
 ---
 
-# code-perfection — 開発ループのハブ
+# code-complete — 開発ループのハブ
 
 与えられた問題を解くコードを、以下のループに従って設計・実装する。
 

@@ -167,5 +167,5 @@ TypeScript 固有のパターン（ブランド型・NonEmpty・時間範囲・�
 - 整理テクニック18種（ガード節・説明変数・ヘルパー抽出など） → `references/tidying.md`。構造の変更と振る舞いの変更は同じコミット/PRに混ぜない。いつ整理するかの経済学は `design-principles`
 - 境界・結合・整理タイミングの判断理論 → `design-principles`
 - TypeScript 固有の型設計パターン → `typescript-best-practices`
-- 開発ループ全体の進め方 → `code-perfection`
+- 開発ループ全体の進め方 → `code-complete`
 - コミットの粒度とメッセージ → リポジトリの既存コミット流儀に合わせる（`git-commit` があればそれを使う）

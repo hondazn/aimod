@@ -13,7 +13,7 @@ import re
 import sys
 
 # Plain 合格/不合格 (herdr-multiagent-dev) and the classified form
-# (code-perfection-multiagent). A bare 不合格 means the classification is
+# (code-complete-multiagent). A bare 不合格 means the classification is
 # missing -- the caller treats that as 不合格:内部構造.
 VERDICT = re.compile(
     r"^[•\-*\s]*(合格|不合格[:：](?:内部構造|API境界|要求前提)|不合格)[。．\s]*$"

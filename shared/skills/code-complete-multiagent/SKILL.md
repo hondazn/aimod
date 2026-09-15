@@ -1,24 +1,24 @@
 ---
-name: code-perfection-multiagent
-description: code-perfection のループを herdr-multiagent-dev の役割分担（builder/reviewer 等）で実行するマルチエージェント開発。HERDR_ENV=1 が前提。マルチエージェントでの開発依頼で使う。
+name: code-complete-multiagent
+description: code-complete のループを herdr-multiagent-dev の役割分担（builder/reviewer 等）で実行するマルチエージェント開発。HERDR_ENV=1 が前提。マルチエージェントでの開発依頼で使う。
 ---
 
-# code-perfection-multiagent — code-perfection ループのマルチエージェント実行
+# code-complete-multiagent — code-complete ループのマルチエージェント実行
 
 ## 概要
 
-code-perfection の開発ループ（探索→モデル化→TDD→学習）を、herdr-multiagent-dev の役割分担（planner / builder / reviewer / fixer）に写像して回す合成スキル。自分（メインエージェント）は指揮者 + 学習判定者に専念し、実装とレビューは別ベンダーのエージェントに分担させる。核心は3つ:
+code-complete の開発ループ（探索→モデル化→TDD→学習）を、herdr-multiagent-dev の役割分担（planner / builder / reviewer / fixer）に写像して回す合成スキル。自分（メインエージェント）は指揮者 + 学習判定者に専念し、実装とレビューは別ベンダーのエージェントに分担させる。核心は3つ:
 
-1. **ラウンド分割**: 大きな依頼は planner がユースケース単位の「ラウンド」に切り、1ラウンド = code-perfection ループ一周として直列に回す
-2. **分類付き合否**: reviewer の判定を二値（合格/不合格）から「不合格 + 分類」に拡張し、分類を code-perfection の戻り先（Refactor / モデル化 / 探索）へルーティングする
-3. **有界ループ**: code-perfection のループは無限だが、委譲して回す以上は戻り回数とタイムボックスに上限を課す。「やめる判断」が品質担保
+1. **ラウンド分割**: 大きな依頼は planner がユースケース単位の「ラウンド」に切り、1ラウンド = code-complete ループ一周として直列に回す
+2. **分類付き合否**: reviewer の判定を二値（合格/不合格）から「不合格 + 分類」に拡張し、分類を code-complete の戻り先（Refactor / モデル化 / 探索）へルーティングする
+3. **有界ループ**: code-complete のループは無限だが、委譲して回す以上は戻り回数とタイムボックスに上限を課す。「やめる判断」が品質担保
 
-**REQUIRED BACKGROUND:** code-perfection（ループ意味論の正本）、herdr-multiagent-dev（役割設計・起動ゲート・判定パースの正本。CLI 操作は herdr スキル）。開始前に `test "${HERDR_ENV:-}" = 1` を確認する。
+**REQUIRED BACKGROUND:** code-complete（ループ意味論の正本）、herdr-multiagent-dev（役割設計・起動ゲート・判定パースの正本。CLI 操作は herdr スキル）。開始前に `test "${HERDR_ENV:-}" = 1` を確認する。
 
 ## When to Use
 
-- 複数ユースケースの開発を、code-perfection の規律（TDD・学習して戻る）を保ったまま、実装とレビューを別エージェントに分担して進めたい
-- **使わない**: 自分1人で開発するなら code-perfection を直接使う。役割分担だけ欲しくループ規律が不要なら herdr-multiagent-dev を直接使う。
+- 複数ユースケースの開発を、code-complete の規律（TDD・学習して戻る）を保ったまま、実装とレビューを別エージェントに分担して進めたい
+- **使わない**: 自分1人で開発するなら code-complete を直接使う。役割分担だけ欲しくループ規律が不要なら herdr-multiagent-dev を直接使う。
 
 ## 全体フロー
 
@@ -41,7 +41,7 @@ flowchart TD
 
 ## 段階 → 役割の写像
 
-| code-perfection の段階 | 役割 | 担当 | 備考 |
+| code-complete の段階 | 役割 | 担当 | 備考 |
 |---|---|---|---|
 | ラウンド分割・探索・モデル化 | planner | 自分 | ラウンド計画に受け入れ条件を明記。計画の質が全ラウンドの上限になる |
 | （計画の検証） | plan-reviewer | planner と別ベンダー | 受け入れ条件の検証可能性・スコープ妥当性のみ |
@@ -50,11 +50,11 @@ flowchart TD
 | 学習の判定（最終）・ルーティング | 自分 | — | reviewer の分類を鵜呑みにせず、根拠を読んで戻り先を最終決定する |
 | Refactor への戻り | fixer | builder と同系 | **3回まで**（本スキルは herdr-multiagent-dev の「1回だけ」を上書きする） |
 
-**planner は常に自分が務め、`agents.yaml` の `planner` エントリは code-perfection-multiagent では使わない**（自分がループの指揮・最終判定を握るのが本スキルの前提）。herdr-multiagent-dev の `agents.yaml` から使うのは plan-reviewer / builder / reviewer / fixer の4役の割当だけ。
+**planner は常に自分が務め、`agents.yaml` の `planner` エントリは code-complete-multiagent では使わない**（自分がループの指揮・最終判定を握るのが本スキルの前提）。herdr-multiagent-dev の `agents.yaml` から使うのは plan-reviewer / builder / reviewer / fixer の4役の割当だけ。
 
 ### planner の規律
 
-探索・モデル化・計画は code-perfection 配下の担当スキル（understand-problem / devise-plan / design-code）の規律に従う。全役割が受け入れ条件の充足だけを見る構造上、**条件自体の盲点は誰も検出できない** — 盲点を潰せるのは planner の探索と計画だけであり、計画の質が全ラウンドの上限になる。全体計画には依頼の意図を、ラウンド計画には各条件の確度（確定/推定）を明記する（devise-plan「計画を整理する」の要素）。
+探索・モデル化・計画は code-complete 配下の担当スキル（understand-problem / devise-plan / design-code）の規律に従う。全役割が受け入れ条件の充足だけを見る構造上、**条件自体の盲点は誰も検出できない** — 盲点を潰せるのは planner の探索と計画だけであり、計画の質が全ラウンドの上限になる。全体計画には依頼の意図を、ラウンド計画には各条件の確度（確定/推定）を明記する（devise-plan「計画を整理する」の要素）。
 
 **既存の振る舞いを変える・写すラウンドでは、計画を書く前に対象の該当ロジックを読む。** 移植・リファクタ・移行のように「今どう動いているか」が条件そのものになるラウンドでは、探索を省くと受け入れ条件が推測で埋まる。レビュアーは実際にコードを読んで裏を取るので、推測で書いた条件はどこか 1 か所は必ず実装とずれ、**そのズレを 1 つずつ潰す往復で上限を使い切る**（実測: 移植ラウンド 1 本で plan-review の不合格を 4 回=上限まで消費。読んでから書き直した以降のラウンドは一発合格が続いた）。
 
@@ -218,7 +218,7 @@ herdr-multiagent-dev のプロンプト契約の型に、TDD の義務を追加�
 
 ## 有界ループの規律
 
-code-perfection は「問題なしと言えるまでループを抜けない」が、委譲して回す以上は上限が要る:
+code-complete は「問題なしと言えるまでループを抜けない」が、委譲して回す以上は上限が要る:
 
 | 戻り先 | 上限 | 超過時 |
 |---|---|---|

@@ -1,6 +1,6 @@
 ---
 name: delegation-discipline
-description: サブエージェントへの委譲時と、非自明な一括作業の着手前に適用する規律。増やす前に形を決め、プロンプトを逐語で渡し、1体は落ちる前提で設計する。単独作業の進め方は領分外（→ code-perfection）。
+description: サブエージェントへの委譲時と、非自明な一括作業の着手前に適用する規律。増やす前に形を決め、プロンプトを逐語で渡し、1体は落ちる前提で設計する。単独作業の進め方は領分外（→ code-complete）。
 license: Proprietary
 ---
 
@@ -15,7 +15,7 @@ license: Proprietary
 効く: サブエージェントを起動する直前。並列作業の構成を決めるとき。非自明な一括作業（同様の編集・移行・生成）の着手前。大きな出力を読む前。
 
 効かない:
-- 単独作業の進め方と開発ループの順序 → `code-perfection`
+- 単独作業の進め方と開発ループの順序 → `code-complete`
 - 受け取った成果を証拠として認めるかの判断 → `evidence-discipline`
 - 境界の切り方の理論 → `design-principles`
 
@@ -128,5 +128,5 @@ bake-off と arena では、採用した案だけでなく、採らなかった�
 ## 参照
 
 - 受け取った成果を証拠として認めるかの判断 → `evidence-discipline`
-- 単独作業の進め方と開発ループ → `code-perfection`
+- 単独作業の進め方と開発ループ → `code-complete`
 - 境界の切り方と共有知識の理論 → `design-principles`

@@ -12,7 +12,7 @@
 # タスク別スキル
 
 - コード変更を伴う作業では `coding-standards` を適用する。型・境界・データフローを決める変更は、着手前に `design-code` で設計を確定する
-- 機能開発・バグ修正の進め方は `code-perfection` の開発ループに従う
+- 機能開発・バグ修正の進め方は `code-complete` の開発ループに従う
 - 設計・分割・構造投資の判断では `design-principles` を土台にする
 - 既存コードの仕組み・置き場・流れを聞かれたら `explain-system` を適用する
 - 完了報告と、影響範囲・原因を述べる直前は `evidence-discipline` を適用する

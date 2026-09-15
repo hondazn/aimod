@@ -199,7 +199,7 @@ for entry in "$HOME/.config/opencode/plugins"/*; do
   prune_stale_link "$entry"
 done
 
-# Rules were dissolved into skills (code-perfection / coding-standards / design-principles).
+# Rules were dissolved into skills (code-complete / coding-standards / design-principles).
 # Drop the links prior versions deployed; anything not ours stays untouched.
 for legacy in "$HOME/.claude/rules" "$HOME/.codex/rules" "$HOME/.cursor/rules"; do
   if is_ours "$legacy"; then

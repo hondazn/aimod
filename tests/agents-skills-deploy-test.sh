@@ -30,7 +30,7 @@ HOME="$HOME_DIR" "$ROOT/scripts/deploy.sh" >/dev/null
 
 dest="$HOME_DIR/.agents/skills"
 assert test "$(readlink "$dest/book-to-skill")" == "$ROOT/shared/skills/book-to-skill"
-assert test "$(readlink "$dest/code-perfection")" == "$ROOT/shared/skills/code-perfection"
+assert test "$(readlink "$dest/code-complete")" == "$ROOT/shared/skills/code-complete"
 assert test "$(cat "$dest/mine/SKILL.md")" == 'mine'
 assert test "$(cat "$dest/comprehension-test/SKILL.md")" == 'user copy'
 assert test ! -e "$dest/stale"
@@ -43,7 +43,7 @@ assert test "$(readlink "$dest/book-to-skill")" == "$before"
 # Undeploy removes our links but never the other clients' skills.
 HOME="$HOME_DIR" "$ROOT/scripts/undeploy.sh" >/dev/null
 assert test ! -e "$dest/book-to-skill"
-assert test ! -e "$dest/code-perfection"
+assert test ! -e "$dest/code-complete"
 assert test "$(cat "$dest/mine/SKILL.md")" == 'mine'
 assert test "$(cat "$dest/comprehension-test/SKILL.md")" == 'user copy'
 
