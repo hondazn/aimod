@@ -1,7 +1,6 @@
 # pr-review コメント整形を reviewer から pr-review スキルへ集約する設計
 
 - 作成日: 2026-05-14
-- 起案: HONDA Jun (jun.honda@spiderplus.co.jp)
 - 関連ファイル:
   - `shared/skills/pr-review/SKILL.md`
   - `shared/agents/{meta,pdm,techlead}-reviewer.md`
