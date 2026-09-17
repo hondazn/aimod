@@ -120,7 +120,7 @@ gh pr list --state all --limit 20 --json number,title
 
 ### 3-2. 本文生成
 
-**テンプレートがある場合**: その `##` 見出しをすべて残し、分かる範囲で埋める。テンプレに無い見出しは足さない。3-3 / 3-4 の書き方は、テンプレ側の相当欄（確認観点・注意点、動作確認エビデンス など）に流し込む。相当欄が無ければ書かない。
+**テンプレートがある場合**: その `##` 見出しをすべて残し、分かる範囲で埋める。テンプレに無い見出しは足さない。3-3〜3-6 の書き方は、テンプレ側の相当欄（変更前後の比較・UI変更、動作確認エビデンス、確認観点・注意点 など）に流し込む。相当欄が無ければ書かない。
 
 **テンプレートが無い場合**: 以下のフォールバック構造を使う。**末尾に「レビュー時の重点確認ポイント」セクションを必須で付ける**。
 
@@ -136,6 +136,14 @@ gh pr list --state all --limit 20 --json number,title
 - 項目1
 - 項目2
 
+## Before / After
+
+<変更前後の比較。画面がある場合はスクリーンショットを貼る。CLI・API・ロジックの変更の場合はビフォーアフターの挙動や出力を記載。Phase 3-3 のルール参照>
+
+| Before | After |
+| --- | --- |
+| <変更前（画面ならスクショ）> | <変更後（画面ならスクショ）> |
+
 ## 関連 Issue
 
 Closes #<番号>
@@ -145,25 +153,119 @@ Closes #<番号>
 
 <作者が既に実施した動作確認とエビデンス。Phase 3-4 のルール参照>
 
-- [x] <実施済みの確認項目1>（コマンド・結果・ログ・スクショ等）
-- [x] <実施済みの確認項目2>
+- [x] <実施済みの確認項目1>
+  ```bash
+  <確認コマンド>
+  <実行結果>
+  ```
+- [x] <実施済みの確認項目2（画面の場合は、Playwright が使えるなら動画、難しければスクショ等を添付）>
 
 ## Test Plan
 
-<この PR に対するレビュアー側・CI 側の追加検証計画。未実施のチェック項目のみ>
+<この PR に対するレビュアー側・CI 側の追加検証計画。未実施のチェック項目のみ。Phase 3-5 のルール参照>
 
 - [ ] <レビュアー/CI が確認する項目1>
 - [ ] <レビュアー/CI が確認する項目2>
 
 ## レビュー時の重点確認ポイント
 
-<レビュアーに特に見てほしい箇所。Phase 3-3 のルール参照>
+<レビュアーに特に見てほしい箇所。Phase 3-6 のルール参照>
 
 - [ ] <確認ポイント1>
 - [ ] <確認ポイント2>
 ```
 
-### 3-3. レビュー確認ポイントの書き方
+### 3-3. Before / After の書き方
+
+テンプレートが**無い**ときだけ **`## Before / After`** を付ける。テンプレートがあるときは、同趣旨の既存見出し（変更前後の比較、UI 変更 など）に同じ内容を書き、見出し名は変えない。
+
+変更前と変更後の違いが一目でわかるように対比し、変更の意図と影響範囲をレビュアーが即座に把握できるようにする。
+
+**書き方のルール:**
+
+- **画面・UI の変更がある場合**: 必ず Before と After の**スクリーンショット**を並べる（Markdown テーブル形式で `| Before | After |` に並べて貼ることを推奨）
+- **CLI・API・ロジックの変更の場合**: 挙動やエラーハンドリング、出力フォーマットの変更前後の違いを表やテキストで明記する
+- 画面変更がない純粋なリファクタリングや内部修正等でも、振る舞い不変（挙動同一）であることを明記するか、自明な変更なら省略して変更内容・動作確認に集約する
+
+### 3-4. 動作確認の書き方
+
+テンプレートが**無い**ときだけ **`## 動作確認`** を付ける。テンプレートがあるときは、同趣旨の既存見出し（動作確認エビデンス など）に同じ内容を書き、見出し名は変えない。
+
+作者（= PR 起票前にコードを触った人）が**既に実施済みの確認**とその**エビデンス**を記録する。レビュアーに「少なくともここまでは動くことを作者が確認した」という事実を伝える。
+
+**書き方のルール:**
+
+- **チェックリスト形式**で書き、実施済みの項目は必ず `- [x]` にする
+- **コマンドによる確認**: 確認コマンドと実行結果を必ず**セットでコードブロック**として記載する（「`コマンド` → 結果」のようなインライン要約で済ませず、実行したコマンドと得られた出力をセットで読めるようにする）
+- **画面（UI）による確認**: **Playwright が使える環境なら動画**（`e2e-video` スキルを活用して WebM/MP4 を添付）を基本とする。Playwright が使えない（または環境構築が困難な）プロジェクトではスクリーンショットや GIF で十分。静止画スクショは Before / After セクションで状態比較を示し、動作確認エビデンスでは動的な振る舞いや操作フローを動画（または操作前後の追加スクショ）で証明する
+- 各項目に**エビデンスを添える**。可能なら以下の形式を推奨:
+  - コマンドと実行結果のセット（コードブロック形式）
+  - 画面操作の動画（Playwright 利用時）またはスクリーンショット
+  - ログ抜粋（コードブロックで囲む、機密情報は除外）
+  - ベンチマーク・計測結果（perf 系 PR の場合）
+- **エビデンスが無い確認は書かない**。「一通り動いた」のような主観記述は禁止
+- **実施できない確認**は 3-5 の Test Plan に回す（未実施項目として分離）
+- 項目数は目安 2〜6 件。網羅性より**決定的な証拠**を優先
+
+**典型パターン:**
+
+| 変更種別 | 典型的な動作確認エビデンス |
+|---------|---------------------------|
+| feat | 新機能の確認コマンドと実行結果（コードブロック）、画面操作の動画（Playwright 利用時）やスクショ、サンプル入力→出力の対応 |
+| fix | バグが再現しなくなったことを示す確認コマンドと実行結果のセット（コードブロック）、画面操作の動画（Playwright 利用時）やスクショ |
+| refactor | 既存テスト全 pass の実行コマンドと結果（コードブロック）、型チェッカー/lint 結果、挙動不変を示す差分 |
+| perf | ベンチマーク計測結果（before/after 比較表）、プロファイリング結果 |
+| docs | プレビュー URL、ビルド確認コマンドとエラー無しの出力ログ（コードブロック） |
+| ci | ローカルで `act` 等を実行したコマンドと出力ログ、ダミー PR での実行結果 URL |
+
+**良い例:**
+
+```
+## 動作確認
+
+- [x] 新規テストが pass
+  ```bash
+  npx jest tests/auth/empty_password.test.ts
+  # PASS  tests/auth/empty_password.test.ts
+  #   ✓ empty_password_returns_400 (12 ms)
+  ```
+- [x] curl で 400 を確認
+  ```bash
+  curl -sS -X POST http://localhost:3000/login \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"a@b.c","password":""}' \
+    -w 'HTTP %{http_code}\n'
+  # {"error":"password_required"} HTTP 400
+  ```
+- [x] ログイン画面のバリデーション挙動（動画）: https://github.com/user-attachments/assets/example-demo-video.mp4
+- [x] 既存の認証系テストが regression なし
+  ```bash
+  npx jest tests/auth/
+  # Tests: 24 passed, 24 total
+  ```
+```
+
+**避ける書き方:**
+
+```
+## 動作確認
+
+- [x] 動作確認した            ← エビデンスなし
+- [x] ローカルで問題ないのを確認  ← 何をどう確認したか不明
+- [x] `npm test` → pass       ← コマンドと実行結果がコードブロックでセットになっていない
+- [x] 画面でボタンを押して動いた ← 画面のエビデンス（動画やスクショ）がない
+```
+
+### 3-5. Test Plan の書き方
+
+**「動作確認（3-4）に書けなかった未実施項目」**だけをここに書く。このセクションはレビュアー・CI 側に委ねる検証計画。
+
+- テンプレートに Test Plan（または同趣旨）があるときは、その見出しを残して埋める。省略しない
+- テンプレートが無く、全項目が実施済みで動作確認で済むなら、`## Test Plan` セクションは**省略してよい**
+- 未実施項目は `- [ ]` で列挙し、何を検証するかを具体的に書く（例: `- [ ] ステージング環境で 1 時間連続稼働し 5xx が発生しないこと`）
+- 「CI に委譲」など、誰が実施するかも明記する
+
+### 3-6. レビュー確認ポイントの書き方
 
 テンプレートが**無い**ときだけ、本文末尾に **`## レビュー時の重点確認ポイント`** を付ける。テンプレートがあるときは、同趣旨の既存見出し（確認観点・注意点 など）に同じ内容を書き、見出し名は変えない。
 
@@ -203,68 +305,6 @@ Closes #<番号>
 - [ ] レビューをお願いします  ← 抽象すぎる
 - [ ] 問題ないか確認         ← 何をか分からない
 ```
-
-### 3-4. 動作確認の書き方
-
-テンプレートが**無い**ときだけ **`## 動作確認`** を付ける。テンプレートがあるときは、同趣旨の既存見出し（動作確認エビデンス など）に同じ内容を書き、見出し名は変えない。
-
-作者（= PR 起票前にコードを触った人）が**既に実施済みの確認**とその**エビデンス**を記録する。レビュアーに「少なくともここまでは動くことを作者が確認した」という事実を伝える。
-
-**書き方のルール:**
-
-- **チェックリスト形式**で書き、実施済みの項目は必ず `- [x]` にする
-- 各項目に**エビデンスを添える**。可能なら以下の形式を推奨:
-  - コマンドと標準出力: `` `cargo test auth::empty_password` → 1 passed ``
-  - curl/HTTP の結果: `` `curl -X POST /login -d '{"password":""}'` → 400 Bad Request ``
-  - ログ抜粋（コードブロックで囲む、機密情報は除外）
-  - スクリーンショット / 画面キャプチャへの相対パス or URL（例: `![](./docs/assets/before-after.png)`）
-  - ベンチマーク・計測結果（perf 系 PR の場合）
-- **エビデンスが無い確認は書かない**。「一通り動いた」のような主観記述は禁止
-- **実施できない確認**は 3-5 の Test Plan に回す（未実施項目として分離）
-- 項目数は目安 2〜6 件。網羅性より**決定的な証拠**を優先
-
-**典型パターン:**
-
-| 変更種別 | 典型的な動作確認エビデンス |
-|---------|---------------------------|
-| feat | 新機能の正常系コマンド/API 出力、スクショ、サンプル入力→出力の対応 |
-| fix | バグが再現しなくなったことを示すコマンド出力（before/after）、テスト pass ログ |
-| refactor | 既存テスト全 pass のログ、型チェッカー/lint 結果、挙動不変であることを示す差分（I/O 同一）|
-| perf | ベンチマーク計測結果（before/after 比較表）、プロファイリング結果 |
-| docs | プレビュー URL、ビルド結果（エラー無しの出力）、スクショ |
-| ci | ローカルで `act` 等で実行した結果、ダミー PR での実行結果 URL |
-
-**良い例:**
-
-```
-## 動作確認
-
-- [x] 新規テストが pass: `npx jest tests/auth/empty_password.test.ts`
-  ```
-  PASS  tests/auth/empty_password.test.ts
-    ✓ empty_password_returns_400 (12 ms)
-  ```
-- [x] curl で 400 を確認: `curl -sS -X POST http://localhost:3000/login -H 'Content-Type: application/json' -d '{"email":"a@b.c","password":""}' -w '%{http_code}\n'` → `400`
-- [x] 既存の認証系テストが regression なし: `npx jest tests/auth/` → 24 passed, 0 failed
-```
-
-**避ける書き方:**
-
-```
-## 動作確認
-
-- [x] 動作確認した            ← エビデンスなし
-- [x] ローカルで問題ないのを確認  ← 何をどう確認したか不明
-```
-
-### 3-5. Test Plan の書き方
-
-**「動作確認（3-4）に書けなかった未実施項目」**だけをここに書く。このセクションはレビュアー・CI 側に委ねる検証計画。
-
-- テンプレートに Test Plan（または同趣旨）があるときは、その見出しを残して埋める。省略しない
-- テンプレートが無く、全項目が実施済みで動作確認で済むなら、`## Test Plan` セクションは**省略してよい**
-- 未実施項目は `- [ ]` で列挙し、何を検証するかを具体的に書く（例: `- [ ] ステージング環境で 1 時間連続稼働し 5xx が発生しないこと`）
-- 「CI に委譲」など、誰が実施するかも明記する
 
 ---
 
@@ -368,25 +408,36 @@ base: <base_branch>  head: <current_branch>
 - `AuthController` で `ValidationError` を 400 レスポンスに変換
 - `empty_password_returns_400` テストを追加
 
+## Before / After
+
+| Before | After |
+| --- | --- |
+| 空 password 送信時に 500 Internal Server Error が発生 | 400 Bad Request と `{"error":"password_required"}` を返却 |
+
 ## 関連 Issue
 
 Closes #12
 
 ## 動作確認
 
-- [x] 新規テストが pass: `npx jest tests/auth/empty_password.test.ts`
+- [x] 新規テストが pass
+  ```bash
+  npx jest tests/auth/empty_password.test.ts
+  # PASS  tests/auth/empty_password.test.ts
+  #   ✓ empty_password_returns_400 (12 ms)
   ```
-  PASS  tests/auth/empty_password.test.ts
-    ✓ empty_password_returns_400 (12 ms)
+- [x] 既存の認証テストに regression なし
+  ```bash
+  npx jest tests/auth/
+  # Tests: 24 passed, 24 total
   ```
-- [x] 既存の認証テストに regression なし: `npx jest tests/auth/` → 24 passed, 0 failed
-- [x] curl で 400 を確認:
+- [x] curl で 400 を確認
   ```bash
   curl -sS -X POST http://localhost:3000/login \
     -H 'Content-Type: application/json' \
     -d '{"email":"a@b.c","password":""}' \
     -w 'HTTP %{http_code}\n'
-  # → {"error":"password_required"} HTTP 400
+  # {"error":"password_required"} HTTP 400
   ```
 
 ## Test Plan
@@ -427,15 +478,24 @@ Closes #12
 - `CLAUDE.md` の「既存のエージェント」表に 1 行追記
 - dotter 経由で `claude/agents` / `cursor/agents` にシンボリックリンクが張られる構成を確認
 
+## Before / After
+
+| Before | After |
+| --- | --- |
+| 日本語文書の校正エージェントが存在せず、手動での確認が必要だった | `doc-style-reviewer` により文体・表記揺れ・構造の一貫性を自動校正可能になった |
+
 ## 関連 Issue
 
 Closes #8
 
 ## 動作確認
 
-- [x] サンプル `SKILL.md`（`shared/skills/create-issue/SKILL.md`）に対して手動実行し、意味のある指摘 5 件を取得:
-  ```
-  findings[0] severity=suggestion category=文体 "敬体と常体の混在" findings[1] severity=nit    category=表記 "『エージェント』と『agent』の表記揺れ" findings[2] severity=suggestion category=語彙 "『〜すること』の重複" findings[3] severity=nit    category=表記 "半角英数の前後スペース不足" findings[4] severity=good   category=構造 "見出し階層に一貫性あり"
+- [x] サンプル `SKILL.md`（`shared/skills/create-issue/SKILL.md`）に対して手動実行し、指摘を取得
+  ```bash
+  claude-agent run doc-style-reviewer shared/skills/create-issue/SKILL.md
+  # findings[0] severity=suggestion category=文体 "敬体と常体の混在"
+  # findings[1] severity=nit        category=表記 "『エージェント』と『agent』の表記揺れ"
+  # findings[2] severity=suggestion category=語彙 "『〜すること』の重複"
   ```
 - [x] 既存 3 reviewer と JSON スキーマが揃うことを目視確認（`severity`/`category`/`message`/`suggestion` フィールド）
 
@@ -453,6 +513,70 @@ Closes #8
 ```
 
 状態: draft（620 行規模・新規抽象の導入のため）
+
+### 例3: UI 変更を含む feat PR（画面スクショ・動画エビデンス）
+
+**前提:**
+
+- ブランチ: `feat/user-profile-card`
+- コミット: 3 件
+- 関連 Issue: #45 `feat(ui): redesign user profile card`
+- 変更規模: 5 files, +140 / -35（Playwright 環境あり）
+
+**生成:**
+
+- タイトル: `feat(ui): redesign user profile card with modern layout`
+- 本文:
+
+```markdown
+## 概要
+
+ユーザープロフィールカードのデザインを刷新。アバター画像の高解像度表示対応、ステータスバッジの追加、およびレスポンシブ対応（モバイル幅での折り返し最適化）を実施した。
+
+## 変更内容
+
+- `UserProfileCard.tsx` のグリッドレイアウトを flex から CSS Grid に移行
+- オンライン/オフライン状態を表示する `StatusBadge` コンポーネントを新規追加
+- モバイル表示時（< 640px）にアクションボタンを縦並びに折り返すレスポンシブスタイルを追加
+
+## Before / After
+
+| Before | After |
+| --- | --- |
+| ![Before](https://github.com/user-attachments/assets/before-profile-uuid) | ![After](https://github.com/user-attachments/assets/after-profile-uuid) |
+
+## 関連 Issue
+
+Closes #45
+
+## 動作確認
+
+- [x] デスクトップおよびモバイル幅での表示切り替え・ステータス更新操作（動画）: https://github.com/user-attachments/assets/profile-card-interaction-uuid.mp4
+- [x] コンポーネント単体テストが pass
+  ```bash
+  npm test src/components/UserProfileCard.test.tsx
+  # PASS  src/components/UserProfileCard.test.tsx
+  #   ✓ renders user info correctly (24 ms)
+  #   ✓ toggles status badge (18 ms)
+  # Tests: 2 passed, 2 total
+  ```
+- [x] Storybook のビジュアルリグレッションテストで差分なし
+  ```bash
+  npm run test:storybook
+  # 12 stories passed, 0 failures
+  ```
+
+## Test Plan
+
+- [ ] Safari / iOS 実機でのフォントレンダリングおよびアスペクト比の確認（QA 担当に依頼）
+
+## レビュー時の重点確認ポイント
+
+- [ ] モバイル幅（375px）で名前の文字数が長い場合にレイアウト崩れが起きないか
+- [ ] `StatusBadge` の色コントラスト比がアクセシビリティ基準（WCAG AA）を満たしているか
+```
+
+状態: ready（140 行規模の UI 改善）
 
 ---
 
