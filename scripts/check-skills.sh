@@ -57,6 +57,9 @@ shopt -s nullglob
 for dir in "$SKILLS_DIR"/*/; do
   dir="${dir%/}"
   name="$(basename "$dir")"
+  case "$name" in
+    synced|*-workspace) continue ;;
+  esac
   file="$dir/SKILL.md"
 
   if [ ! -f "$file" ]; then

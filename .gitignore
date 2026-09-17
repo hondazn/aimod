@@ -3,4 +3,5 @@
 .opencode-agents/
 shared/skills/*-workspace/
 shared/skills/slack-triage/
+shared/skills/synced/
 shared/skills/*/agents.local.yaml

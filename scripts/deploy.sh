@@ -151,6 +151,9 @@ mkdir -p "$HOME/.codex/skills"
 shopt -s nullglob
 for skill in "$ROOT/shared/skills"/*; do
   [[ -d "$skill" ]] || continue
+  case "$(basename "$skill")" in
+    synced|*-workspace) continue ;;
+  esac
   link_codex_skill "$skill" "$HOME/.codex/skills/$(basename "$skill")"
 done
 # A skill removed from shared/skills leaves its Codex link dangling; .system and
@@ -169,12 +172,23 @@ else
   mkdir -p "$HOME/.agents/skills"
   for skill in "$ROOT/shared/skills"/*; do
     [[ -d "$skill" ]] || continue
+    case "$(basename "$skill")" in
+      synced|*-workspace) continue ;;
+    esac
     link_guarded_path "$skill" "$HOME/.agents/skills/$(basename "$skill")" || true
   done
   for entry in "$HOME/.agents/skills"/*; do
     prune_stale_link "$entry"
   done
 fi
+
+# Clean up unmanaged internal links (e.g. synced from Cursor Skills Sync)
+for unmanaged in "$HOME/.codex/skills/synced" "$HOME/.agents/skills/synced"; do
+  if is_ours "$unmanaged"; then
+    rm -f "$unmanaged"
+    log "remove unmanaged $unmanaged"
+  fi
+done
 
 # opencode: global instructions are read from ~/.config/opencode/AGENTS.md, which wins
 # over the ~/.claude/CLAUDE.md fallback (no double load). Agents must live in

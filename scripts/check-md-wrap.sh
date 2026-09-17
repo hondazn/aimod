@@ -93,10 +93,10 @@ report() {
 shopt -s nullglob
 for t in "${targets[@]}"; do
   if [ -d "$t" ]; then
-    # skills-archive は退避済みの凍結記録なので、ディレクトリ指定でも中へ入らない
+    # skills-archive は退避済みの凍結記録、synced は外部同期物なので中へ入らない
     while IFS= read -r f; do
       report "$f"
-    done < <(find "$t" -name '*.md' -type f -not -path '*/skills-archive/*' | sort)
+    done < <(find "$t" -name '*.md' -type f -not -path '*/skills-archive/*' -not -path '*/synced/*' | sort)
   elif [ -f "$t" ]; then
     report "$t"
   else
