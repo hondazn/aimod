@@ -100,7 +100,7 @@ for dir in "$SKILLS_DIR"/*/; do
   fi
 
   # 呼び出し制御の frontmatter。解釈はクライアントごとに割れており、Codex と opencode は
-  # disable-model-invocation を無視する（実測表は CLAUDE.md）。一覧から消えることへの
+  # disable-model-invocation を無視する（実測表は docs/clients.md）。一覧から消えることへの
   # 依存は危険なので、手動起動の契約は description 側でも宣言させる。
   fm_dmi="$(printf '%s\n' "$fm" | sed -n 's/^disable-model-invocation:[[:space:]]*//p' | head -1)"
   fm_ui="$(printf '%s\n' "$fm" | sed -n 's/^user-invocable:[[:space:]]*//p' | head -1)"
@@ -130,7 +130,7 @@ for dir in "$SKILLS_DIR"/*/; do
   fi
 
   # Codex は SKILL.md の frontmatter を無視するが、スキル直下の agents/openai.yaml にある
-  # policy.allow_implicit_invocation は尊重する（実測は CLAUDE.md）。片方だけ書くと
+  # policy.allow_implicit_invocation は尊重する（実測は docs/clients.md）。片方だけ書くと
   # 「Claude では手動・Codex では自動」に割れるため、フラグと yaml を一致させる。
   codex_policy="$dir/agents/openai.yaml"
   codex_val=""

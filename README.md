@@ -64,7 +64,7 @@ opencode の skills は Claude Code 互換機能で `~/.claude/skills` を自動
 
 タスク別ルールは rules という別カテゴリを持たず、すべてスキルとして配る（例: `coding-standards` / `design-principles`）。過去バージョンが `~/.claude/rules` / `~/.codex/rules` / `~/.cursor/rules` に張ったリンクは、次回の `deploy.sh` が aimod 由来のものだけ削除する。
 
-Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワークスペースから上へ辿って `AGENTS.md` を拾い、`~` が全リポジトリの祖先になるため。`~/.cursor/` 配下に置いても拾われないことを実測済み。この経路は Claude / Codex では読まれないので二重ロードにはならない。根拠は [`CLAUDE.md`](CLAUDE.md) を参照。
+Cursor 向けの instructions が `~/AGENTS.md` なのは、Cursor がワークスペースから上へ辿って `AGENTS.md` を拾い、`~` が全リポジトリの祖先になるため。`~/.cursor/` 配下に置いても拾われないことを実測済み。この経路は Claude / Codex では読まれないので二重ロードにはならない。根拠は [`docs/clients.md`](docs/clients.md) を参照。
 
 `shared/` からスキルを消した場合、`~/.codex/skills/<name>` に残る壊れた symlink は次回の `deploy.sh` が自動で除去する（aimod 由来のリンクのみ。実体や外部ツール管理のリンクは残す）。
 
@@ -95,7 +95,7 @@ mkdir -p shared/skills/my-skill
 
 Markdown は **1段落1物理行**で書く（段落・リスト項目・引用の途中で折り返さない）。表・見出し・フェンス付きコードブロックは各行が独立した行なので対象外。`./scripts/check-md-wrap.sh` がこれを検査する。行の折り返しは diff の粒度を壊し、段落の追加・削除を1行で読めなくするため。
 
-モデルに自動選択させたくないスキルは `disable-model-invocation: true` を付け、**同時に** description へ `/name` と「モデルは自動選択してはならない」を書き、**さらに `agents/openai.yaml` に `policy: allow_implicit_invocation: false` を置く**。frontmatter のフラグは Claude Code / cursor-agent / DSH が尊重するが **Codex は無視する**（代わりに yaml を見る。実測表は [`CLAUDE.md`](CLAUDE.md)）。opencode はどちらも持たないので description の一文が唯一の防御になる。`check-skills.sh` がこの3点の整合を検査する。
+モデルに自動選択させたくないスキルは `disable-model-invocation: true` を付け、**同時に** description へ `/name` と「モデルは自動選択してはならない」を書き、**さらに `agents/openai.yaml` に `policy: allow_implicit_invocation: false` を置く**。frontmatter のフラグは Claude Code / cursor-agent / DSH が尊重するが **Codex は無視する**（代わりに yaml を見る。実測表は [`docs/clients.md`](docs/clients.md)）。opencode はどちらも持たないので description の一文が唯一の防御になる。`check-skills.sh` がこの3点の整合を検査する。
 
 ### gh skill について
 
@@ -105,5 +105,6 @@ Markdown は **1段落1物理行**で書く（段落・リスト項目・引用�
 
 ## ドキュメント
 
-- リポジトリ内の詳細（レビュー用エージェントなど）: [`CLAUDE.md`](CLAUDE.md)
+- 作業規約: [`AGENTS.md`](AGENTS.md)
+- クライアント別の読み込み挙動（実測記録）: [`docs/clients.md`](docs/clients.md)
 - 設計メモ: [`docs/specs/2026-07-24-unified-ai-config-design.md`](docs/specs/2026-07-24-unified-ai-config-design.md)

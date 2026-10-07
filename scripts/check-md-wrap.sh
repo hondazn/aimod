@@ -2,7 +2,7 @@
 # 1段落1物理行の規約を検査する（technical-writing「Markdown の整形」）。
 # 段落・リスト項目の途中で折り返した行を見つける。表・見出し・フェンス・frontmatter は対象外。
 #
-#   ./scripts/check-md-wrap.sh [PATH...]   # 既定: shared/ README.md CLAUDE.md
+#   ./scripts/check-md-wrap.sh [PATH...]   # 既定: shared/ README.md AGENTS.md docs/clients.md
 #
 # 除外は「凍結された記録」。docs/specs/ と shared/skills-archive/ は既定の対象に含めない
 # （点検の範囲を狭める側に倒す。理由は technical-writing「点検の範囲」）。
@@ -17,7 +17,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$#" -gt 0 ]; then
   targets=("$@")
 else
-  targets=("$ROOT/shared/skills" "$ROOT/shared/instructions.md" "$ROOT/shared/agents" "$ROOT/README.md" "$ROOT/CLAUDE.md")
+  targets=("$ROOT/shared/skills" "$ROOT/shared/instructions.md" "$ROOT/shared/agents" "$ROOT/README.md" "$ROOT/AGENTS.md" "$ROOT/docs/clients.md")
 fi
 
 problems=0
