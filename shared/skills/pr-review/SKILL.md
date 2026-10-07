@@ -26,148 +26,335 @@ allowed-tools:
 $ARGUMENTS
 ```
 
-作業を開始する前に、ユーザーからの入力を理解し、PR番号を特定すること。
+## 目的と完了条件
 
-## 目的
+PR の変更を構造的に解説し、コード品質・安全性の観点でレビューして GitHub に投稿する。コードは修正しない。
 
-PRの変更内容を構造的に理解・解説し、一般的なコード品質観点でレビューし、GitHubにレビューコメントを投稿する。このスキルはコード修正を行わない。
+完了は次のどちらかをユーザーへ報告した時点に限る。findings 表・サマリー文面・エージェント出力ができた時点は途中であり、非対話実行でも変わらない。
 
-## 完了条件 (Definition of Done)
-
-このスキルは「Phase 6 まで到達した上で、GitHub への投稿アクションを取った（または取らない正規理由を明示報告した）」時点で初めて完了する。エージェント結果が揃った時点、findings 表が完成した時点、サマリー文面ができた時点はいずれも完了ではない。
-
-完了したと言える状態は、以下のいずれかを満たすことである:
-
-1. Phase 6-2 でレビュー投稿が成功し、その URL をユーザーへ報告した
-2. 以下のいずれかの正規早期終了条件に該当することをユーザーへ明示報告した
-   - PR が `OPEN` 以外（`MERGED` / `CLOSED`）であった（Phase 1-3）
-   - 再レビューガードにより停止した（Phase 1-5A: 自発的再レビュー × APPROVED 済み 等）
-   - `post_approval_mode == true` かつ fatal なし かつ must なし かつ `is_requested_re_review == false` で、Phase 6-1 ルール表に従い投稿しない判断をした（マージブロック判定は `fatal` の有無で行う。must が1件でもあれば「投稿しない」は正規早期終了にならず、`COMMENT` で投稿する）
-
-上記いずれにも該当しない状態でスキルを終了することは未完了であり、再開して Phase 6 まで進めること。特に Phase 4-5 / 4-5B で findings の統合と Lead 判定が終わった時点はスキル全体の中間地点に過ぎず、ここで停止してはならない。
-
-非対話的に呼び出された場合でも、この完了条件は変わらない。中間結果（findings 表、サマリー文面、エージェント raw 出力）を出力したことをもって完了とみなしてはならない。
+1. Phase 6 の投稿が成功し、URL を報告した
+2. 正規早期終了を理由とともに報告した: PR が `OPEN` でない（1-1）／再レビューガードで停止した（R-2）／`post_approval_mode` で fatal も must もなく、明示依頼でもないため投稿しない（6-1）
 
 ---
 
 ## Phase 1: PR情報取得
 
-### 1-1. PR番号の抽出
+### 1-1. PR番号と基本情報
 
-`$ARGUMENTS` から以下の形式でPR番号を抽出する:
-
-- `#123` / `123` — 数字のみ
-- `https://github.com/{owner}/{repo}/pull/123` — URLからパース
-- 引数なし — カレントブランチのPRを自動検出: `gh pr view [<number> | <url> | <branch>] --json number --jq '.number'`
-
-抽出できない場合はユーザーにPR番号を確認する。
-
-### 1-2. PR情報の取得
+`$ARGUMENTS` から PR 番号を取る（`#123` / `123` / `https://github.com/{owner}/{repo}/pull/123`）。引数が無ければ `gh pr view --json number --jq '.number'` でカレントブランチの PR を使い、それも無ければユーザーに聞く。
 
 ```bash
 gh pr view <番号> --json number,title,state,headRefName,baseRefName,url,body,labels,author,reviewRequests
 ```
 
-エラーが発生した場合（PRが存在しない、権限不足等）はユーザーに報告して停止する。
+取得エラー（存在しない・権限不足）は報告して停止する。`state` が `OPEN` でなければ「このPRは既に{状態}です」と報告して停止する。
 
-### 1-3. 前提条件チェック
+リポジトリ（以降の `{owner}/{repo}` にリテラルで埋める）: !`gh repo view --json nameWithOwner --jq '.nameWithOwner'`
 
-| チェック項目 | 条件 | 失敗時 |
-|-------------|------|--------|
-| PRステータス | `state == OPEN` | MERGED/CLOSEDなら「このPRは既に{状態}です」と報告して停止 |
+自分のログイン名: !`gh api user --jq '.login'`
 
-### 1-4. リポジトリのオーナー/リポジトリ名の取得
-
-以降の `gh api` コマンドで使うため、最初にオーナー/リポジトリ名を取得しておく:
-
-!`gh repo view --json nameWithOwner --jq '.nameWithOwner'`
-
-取得した値は以降の `{owner}/{repo}` プレースホルダーにリテラルとして埋め込む。
-
-### 1-5. 既存レビューの確認
-
-自分（CLIユーザー）が既にこのPRをレビュー済みかを確認する:
-
-自分のログイン名を取得!`gh api user --jq '.login'`
+### 1-2. 既存レビューの確認
 
 ```bash
-# このPRの全レビューを取得
 gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
   --jq '[.[] | {user: .user.login, state, body, submitted_at: .submitted_at}]'
 ```
 
-取得した結果から、自分のログイン名と一致するレビューを抽出する。
+自分のレビューが1件以上あれば `is_re_review = true` とし、最新のものから `previous_review_state`（`CHANGES_REQUESTED` / `COMMENTED` / `APPROVED`）と `previous_review_body` を記録して、「再レビュー」節の R-1〜R-3 を実行する。無ければ `is_re_review = false`。
 
-**再レビューの場合（自分のレビューが1件以上存在する場合）:**
+### 1-3. 関連Issue
 
-- `is_re_review = true` とし、最新の自分のレビューから以下を記録する:
-  - `previous_review_state`: `CHANGES_REQUESTED` / `COMMENTED` / `APPROVED`
-  - `previous_review_body`: レビューサマリー本文
-- これらの情報は Phase 1-5A の再レビューガード、Phase 4 の一貫性チェック、Phase 5-3 のサマリー作成で使用する
-
-**初回レビューの場合:** `is_re_review = false` として続行する。
-
-### 1-5B. 明示的再レビュー依頼の検出
-
-`is_re_review == true` の場合、この再レビューが明示的に依頼されたものかを判定する。以下のいずれかに該当する場合 `is_requested_re_review = true` とする:
-
-1. **GitHub上でのレビュー再依頼**: Phase 1-2 で取得した `reviewRequests` に自分のログイン名が含まれている（PRオーサーまたは他のユーザーが「re-request review」ボタンを押した）
-2. **ユーザーの明示的指示**: `$ARGUMENTS` に「レビューして」「レビューお願い」「再レビュー」「もう一度レビュー」「レビューし直し」「review」「re-review」等、レビュー実行を求めるパターンが含まれている
-
-いずれにも該当しない場合 `is_requested_re_review = false`。該当しないケース: ユーザーが具体的な確認依頼（例: 「この部分だけ見て」「セキュリティ大丈夫？」）のみを述べており、GitHub上のレビュー再依頼もない場合。
-
-`is_re_review == false`（初回レビュー）の場合、このセクションはスキップする。
-
-### 1-5A. 再レビューガード
-
-`is_re_review == true` の場合、以下の判定テーブルに従う:
-
-**`is_requested_re_review == true` の場合（明示的に依頼された再レビュー）:**
-
-再レビューが明示的に依頼されている以上、依頼者はレビュー結果がGitHubに投稿されることを期待している。停止や確認で遅延させない。
-
-| previous_review_state | review_count | 動作 |
-|---|---|---|
-| `APPROVED` | any | `post_approval_mode = true` で続行（停止しない、確認も不要） |
-| other | any | 再レビューとして続行（確認不要） |
-
-**`is_requested_re_review == false` の場合（自発的な再レビュー）:**
-
-| previous_review_state | review_count | 動作 |
-|---|---|---|
-| `APPROVED` | any | **停止**。「このPRは既にAPPROVEしています」と報告。ユーザーが明示的に再レビューを指示した場合のみ `post_approval_mode = true` で続行 |
-| other | 1 | 再レビューとして続行 |
-| other | 2以上 | ユーザーに確認（PRオーサーへの負担を考慮）。続行指示がなければ停止 |
-
-### 1-6. 関連Issueの取得
-
-PR本文から `Closes #N` / `Fixes #N` / `Resolves #N` / `Refs #N` / `#N` パターンでIssue番号を抽出し、Issue情報を取得する:
+PR本文の `Closes #N` / `Fixes #N` / `Resolves #N` / `Refs #N` / `#N` から Issue を取る。見つからなければ無視して続ける。
 
 ```bash
 gh issue view <番号> --json number,title,body,labels
 ```
 
-Issueが見つからない場合は無視して続行する（エラーで止めない）。
-
-### 1-7. 変更ファイル一覧と差分の取得
+### 1-4. 変更ファイルと差分
 
 ```bash
 gh pr view <番号> --json files --jq '.files[] | "\(.path)\t\(.additions)\t\(.deletions)"'
 gh pr diff <番号>
 ```
 
-### 1-8. 大規模PR対応
+変更ファイルが30超、または差分が合計2000行超なら、ビジネスロジック（テスト・設定・自動生成より優先）→ 変更量の大きいファイル → 新規ファイルの順に重点対象を選ぶ。
 
-変更ファイル数が30超、または差分行数合計が2000行超の場合、以下の優先順位で重点レビュー対象を自動選択する:
-   - ビジネスロジック（テスト・設定ファイル・自動生成ファイルより優先）
-   - 変更量の大きいファイル
-   - 新規追加ファイル
+---
 
-### 1-9. 前回コメントと既存コメントの収集（再レビュー時のみ）
+## Phase 2: コンテキスト理解
 
-`is_re_review == true` の場合、二転三転の防止と重複排除のためにPR上の既存レビューコメントを収集する。
+差分だけでなく周辺コードを読む。コードは必ずリモートの PR ブランチ最新版を参照し、比較基準のベースブランチも最新化しておく。
 
-resolve-review スキルと同じ GraphQL API でレビュースレッドを取得する:
+### 2-1. ベースブランチの最新化とレビュー用worktree
+
+本体ツリーの未コミット変更や作業を壊さないよう、`git checkout` / `gh pr checkout` / `git pull` は使わず、fetch と detached の worktree だけで進める。ベースは 1-1 の `baseRefName`（デフォルトブランチとは限らない）。
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel)
+WORKTREE_DIR="$REPO_ROOT/.worktrees/pr-<番号>"
+BASE=<baseRefName>
+git fetch origin "$BASE"   # origin/$BASE を最新化する
+if git show-ref --verify --quiet "refs/heads/$BASE"; then
+  # ローカルの $BASE は fast-forward できるときだけ進める。checkout 中・分岐ありなら git が拒否するので、その旨を報告して続行する
+  git fetch origin "$BASE:$BASE"
+fi
+git fetch origin "pull/<番号>/head"   # FETCH_HEAD を PR の HEAD にするため最後に取る
+if git worktree list --porcelain | grep -q "^worktree $WORKTREE_DIR$"; then
+  git -C "$WORKTREE_DIR" reset --hard FETCH_HEAD   # 既存なら最新に合わせ直す
+else
+  git worktree add --detach "$WORKTREE_DIR" FETCH_HEAD
+fi
+```
+
+- `WORKTREE_DIR` は絶対パスで保持し、Read/Glob/Grep とエージェントへの prompt にそのまま使う。`cd` はしない
+- ベース側のコードは `origin/$BASE` で見る（例: `git show "origin/$BASE:<path>"`）。「この PR が持ち込んでいない既存の問題」（4-4）かどうかはここで確かめる
+- worktree の作成に失敗したら状況を報告して停止する。`--force` や強制削除は使わない
+
+### 2-2. 周辺コード
+
+差分から必要な範囲だけ `$WORKTREE_DIR` 配下で読む。関数シグネチャの変更なら呼び出し元、型定義なら使用箇所、インターフェースなら実装箇所、インポート追加なら依存先の API を確認する。
+
+### 2-3. プロジェクト規約
+
+`CLAUDE.md` / `.cursorrules` 等、`CONTRIBUTING.md`、`.github/pull_request_template.md` があれば読む。
+
+---
+
+## Phase 3: 変更内容の構造的解説
+
+良し悪しは判断せず、何が変わったかだけを解説する。
+
+1. **変更内容**: 追加/変更/削除されたファイル（各1行の主旨つき）と型・関数・クラス、それぞれの目的
+2. **設計意図の推論**: 解決する課題、選んだアプローチとその理由、スコープ（含むもの・含まないもの）。不確かな点は「〜と読めますが、意図が違ったら教えてください」と確認を促す
+3. **影響分析**: 直接依存しているコードと、API・スキーマ変更などによる間接影響
+4. **着眼点**: PRの文脈に即したオープンクエスチョンを3〜5個
+
+---
+
+## Phase 4: コードレビュー
+
+変更ファイルだけを対象に、Phase 2-3 の規約も加味する。些末な指摘を量産するより重要な問題を正確に指摘する。「テックリードとしてマージを承認する立場で何が気になるか」で考える。
+
+### 4-1. Lead がレビューし、足りない視点だけ外注する
+
+親が Lead。Phase 1–3 で Issue・PR本文・diff を読んだ親が、方向性と致命を自分で書く。親の finding の `reviewer` は `"lead"` で、親は `fatal` を付けてよい。
+
+レビュー用サブエージェントの既定は **0体**。`meta-reviewer` はレビュー経路では起動しない（`self_review` 用に定義は残す）。追加起動は、親が「自分では判断できない」と1文で言えるときだけ:
+
+| 条件 | 起動 | 上限 |
+|---|---|---|
+| 通常 | なし | 0 |
+| 親が欠けている視点を1文で名付けた | そのスペシャリスト（プールは `consult-specialists` と同じ12体。重なる候補は代表1体） | 合計 2 |
+| 認可・秘密情報・データ消失の差分があり、親が fatal 候補に自信がない | `fatal-reviewer` | 別枠 1 |
+
+| 差分の兆し | 候補 |
+|---|---|
+| テスト / AC / 仕様記述 | `qa` |
+| auth / 権限 / 秘密情報 / 公開 API | `safety-skeptic` |
+| 障害・リトライ・監視・デプロイ | `failure-pessimist` |
+| UI / 文言 / オンボーディング | `taste` or `friction-maximalist` |
+| 大きな構造変更 / 新モジュール | `architect` or `tech-lead` |
+| 暫定フラグ・二重実装 | `debt-auditor` |
+| 計測・ログ追加 | `data-realist` |
+
+選定をユーザーへ「親レビュー / 追加: …（理由）」と一行報告する。追加が無ければ「親レビュー / 追加: なし」とし、4-2 を飛ばして 4-3 へ進む。
+
+自動検査が緑でも検証されない面は Lead が読む:
+
+- 追加・変更された散文（コメント・文書・PR本文・エラーメッセージ）が意味を成し、事実と合うか
+- 挙動を変えたのに README・コメント・スキーマ記述が同じ差分で更新されていなければ finding にする
+- 命名と抽象の妥当性
+
+**重要度:**
+
+| 重要度 | 意味 | 付けられる者 |
+|---|---|---|
+| **fatal** | マージしたら本番・契約・利用者を壊す。唯一のマージブロック | `lead` と `fatal-reviewer` のみ |
+| **must** | 正しく動作しない、セキュリティリスク、要件未充足 | 全員 |
+| **suggestion** | より良い実装がある | 全員 |
+| **nit** | typo・スタイル統一などの些細な点 | 全員 |
+| **good** | 良い実装、学びになるパターン | 全員 |
+
+**finding の書き方:** 親も追加レビュアーも 4-2 の JSON と同じフィールドで書く。`rationale` は次を守る（バッジと改善案の配置は 4-6 が行う）。
+
+- ですます調で、何が問題で何をすべきかを根拠つきで言い切る。良い例「ここ、nullが来るとクラッシュします。チェックを入れてください」、悪い例「null参照の可能性が検出されました。適切なバリデーションの実装が推奨されます」
+- must/suggestion では「〜かも」「〜な気がします」を使わない。柔らかい表現は nit だけ
+- 改善案は `suggestion` フィールドに分ける
+- ごくたまに文末へ絵文字を1つ添えてよい（👀 注目 / 👍 賛同 / 🎉 称賛 / ⚠️ リスク / 💡 提案 / 🙏 感謝）。「!」は称賛・感謝など肯定的な文脈だけで使う
+
+### 4-2. 追加レビュアーの並列起動
+
+4-1 で選んだレビュアーを同一メッセージで並列起動する（`subagent_type` は `shared/agents/` の名前）。prompt には原則すべてを渡す: PR情報（番号・URL・タイトル・ブランチ・作成者）、PR本文、関連Issue、Phase 3 の設計意図、変更ファイルと主旨、`gh pr diff` 全文、規約、コード参照ルート `$WORKTREE_DIR`（本体ツリーは読まないと明示）。PR番号と URL を含めると各エージェントは `pr_review` モードで動く。再レビュー時は R-4 の指示も付ける。
+
+スペシャリストはネイティブの出力が Markdown 散文なので、prompt 末尾に次を付けて JSON を優先させる:
+
+```text
+## 期待する出力（必須・自エージェント定義の Markdown 出力フォーマットより優先する）
+助言モード。次の JSON 以外を出力しない:
+{"reviewer": "<your-name>", "mode": "pr_review", "note": null, "findings": [
+  {"file": null, "line": null, "side": "RIGHT", "start_line": null, "start_side": null,
+   "severity": "must|suggestion|nit|good（fatal は付けない）",
+   "category": "<自分の専門領域の短いカテゴリ名>",
+   "badge_label": "合計15文字以内 / 1行5文字以内 / 改行2回まで / 日本語主体",
+   "title": "1行要約", "rationale": "根拠つきの説明（ですます調）",
+   "suggestion": "改善案 or null", "evidence": "参照元 or null"}]}
+行レベルの指摘は file/line を埋め、PR全体への指摘は file: null。バッジ URL や重要度マークは付けない。0件なら findings: []。
+```
+
+フィールドの詳しい意味は `shared/agents/meta-reviewer.md` の「フィールド仕様」節と同じ。
+
+### 4-3. 結果の統合
+
+- 親の finding と各エージェントの `findings[]` を平坦化し、エージェント由来には出所名（例: `"fatal-reviewer"`）を `reviewer` に入れる。4-6 のアニメ選択に使う
+- `lead` と `fatal-reviewer` 以外が返した `fatal` は `must` に降格する
+- **完全重複**（同一ファイル・行番号差5行以内・内容が実質同一）→ 重要度の高い方を残す。同点なら `lead` → `fatal-reviewer` → その他の順で採る
+- **部分重複**（同一ファイル・行番号差5行以内・観点が異なる）→ `rationale` / `suggestion` / `evidence` を1件にまとめ、重要度は最も高いもの、`reviewer` は高重要度側（同点は `lead`）
+- 再レビュー時は R-4 の除外も適用する
+- fatal → must → suggestion → nit → good、同一重要度内はファイルパス順に並べる
+
+### 4-4. Lead 判定（投稿フィルタ）
+
+親は中立な集計係ではない。各 finding に判定を1つ付ける。重要度は変えない。
+
+| 判定 | 意味 | GitHub | ユーザー報告 |
+|---|---|---|---|
+| **Act on** | 正しさ・安全・今の目的に照らして手を入れる | 投稿する（R-4 の閾値も適用） | 出す |
+| **Consider** | 妥当だが、今直すコストに見合うか不明 | 初回レビューの must/suggestion だけ投稿する | 出す |
+| **Noted** | 妥当だが今は動かさない | 出さない | 件数と一行 |
+| **Dismissed** | 誤り・文脈違い・揚げ足 | 出さない | 捨てた理由を一行（覆せるように） |
+
+Dismissed の典型は、lint・型・テストが既に落とす指摘、この PR が持ち込んでいない既存の問題、リポジトリ規約が既に決めている好みの差。較正は「この指摘で作者が実際に手を動かすか」の1問に置く。
+
+### 4-5. 検出結果の整理
+
+判定列つきの表にまとめる。「問題の内容」は `title` をそのまま転記する。0件ならその旨を報告し、Phase 5 で APPROVE のサマリーだけ作る。
+
+```text
+| # | ファイル:行 | 問題の内容 | 重要度 | 判定 | 観点 | ソース |
+|---|-----------|-----------|--------|------|------|--------|
+| 1 | src/foo.rs:42 | 認可チェックが抜けていて他ユーザーのデータが読める | fatal | Act on | 致命 | lead |
+| 2 | crates/app/src/bar.rs | AC #3 のシナリオに対応するテストが存在しない | must | Consider | テスト網羅性 | qa |
+| 3 | （PR全体） | 既存の `lib/auth/middleware.rs` と同じ機能を再実装している | suggestion | Noted | 方向性 | lead |
+```
+
+ここはスキルの中間地点。表ができても止まらず Phase 5 へ進む。
+
+### 4-6. コメント整形
+
+投稿対象の finding から GitHub Reviews API の `comments[]` を組み立てる。バッジ（ラベル検証・色・アニメ・ヘルパー呼び出し）は `REVIEW-BADGES.md` に従う。URL は手書きしない。
+
+1. `Skill` ツールで `mojiemoji-github:mojiemoji-github` を読み込み、`REVIEW-BADGES.md` の手順でヘルパーのパスを確定する
+2. `file == null` の finding は `comments[]` に載せず（API が `path` 必須）、6-3 の報告に「PR レベル所感」として列挙する
+3. 残りを並び順に走査し、`body = バッジ + "\n\n" + rationale`、`suggestion` があれば末尾に `"\n\n**改善案:** " + suggestion` を足す。`title` は本文に出さず、`rationale` は装飾しない
+4. `{"path", "line", "side"（既定 "RIGHT"）, "body"}` を追加する。`start_line` / `start_side` があれば入れる
+
+---
+
+## Phase 5: レビューサマリー
+
+サマリーは Reviews API の `body` として投稿する。テックリードとしてのマージ判断と PR 全体の評価を伝える場で、個別の指摘はインラインが担う。
+
+**構成:**
+
+1. 冒頭の一文でマージ判断を示す。fatal があれば「修正が必要です」、無ければ「マージしてOKです」。must だけなら「気になる点はありますが、マージ自体は問題ありません」のようなトーン
+2. fatal/must があれば問題の **領域** には触れてよい（「エラーハンドリング周りに気になるところがあります」）。具体的な指摘内容はインラインに任せる
+3. 設計方針の議論が必要なときだけ補足する
+4. 全体で1〜4行。件数の統計表・Markdown 見出し・「詳細はインラインで」のような言及は書かない
+
+**文の型:** 直近のレビューと違う型を選ぶ。「印象から入る + ただ、」の連続は避ける。
+
+- 判断から入る: 「問題ありません。マージしてOKです。テストも十分です。」
+- 変更の核心から入る: 「キャッシュ戦略の見直し、設計・実装ともに良いです。」
+- 端的に評価する: LGTM バッジだけ（APPROVE 時）
+- 修正要求から入る: 「並行処理周りに修正が必要です。修正してからマージしましょう。」
+
+| ルール | NG | OK |
+|--------|-----|-----|
+| 冗長な前置きを入れない | 「PRの変更内容を確認しました。全体として〜」 | 「設計・実装ともに良さそうです。」 |
+| 件数で語らない | 「must: 2件を検出しました」 | 「2点ほど直したほうがよさそうなところがあります」 |
+| 敬語は軽めに | 「ご修正いただけますと幸いです」 | 「直してもらえると助かります」 |
+| 判断を明確にする | 「問題がある可能性が考えられます」 | 「ここはバグです。修正してください」 |
+| 絵文字・!は控えめに | 「LGTM 🎉👍✨」 | 「LGTM 🎉」 |
+
+**LGTM バッジ:** イベントが `APPROVE` のときだけ、テキストの LGTM の代わりに mojiemoji の LGTM バッジを本文に入れる。`mojiemoji-selector` サブエージェントに `REVIEW-BADGES.md` の契約で依頼し、返った `<img>` をそのまま貼る。`COMMENT` / `REQUEST_CHANGES` には付けない。
+
+投稿前に確かめる: インラインと同じ指摘を繰り返していないか、初回なのに「前回」に触れていないか（再レビューなら R-5 に沿っているか）、同僚に口頭で伝えて不自然でないか。
+
+---
+
+## Phase 6: GitHub投稿
+
+### 6-1. レビューイベント
+
+| 条件 | イベント |
+|------|---------|
+| 投稿対象に fatal がある | `REQUEST_CHANGES` |
+| fatal なし、must/suggestion/nit がある | `COMMENT` |
+| fatal なし、good のみ / 指摘なし | `APPROVE` |
+
+マージブロックは fatal の有無だけで決まり、must 単独では `REQUEST_CHANGES` にしない。
+
+`post_approval_mode` のときは上の表より次を優先する:
+
+| 条件 | イベント |
+|------|---------|
+| fatal または must がある | `COMMENT`（`REQUEST_CHANGES` にしない。must を握り潰さない） |
+| どちらも無く、`is_requested_re_review == true` | `APPROVE` |
+| どちらも無く、`is_requested_re_review == false` | **投稿しない**（正規早期終了。ユーザーにだけ報告） |
+
+### 6-2. 投稿
+
+```bash
+gh pr view <番号> --json headRefOid --jq '.headRefOid'
+
+gh api repos/{owner}/{repo}/pulls/<番号>/reviews --method POST --input - <<'EOF'
+{
+  "event": "COMMENT",
+  "body": "レビューサマリー本文",
+  "commit_id": "<HEAD SHA>",
+  "comments": [
+    {"path": "src/xxx.rs", "line": 42, "side": "RIGHT", "body": "<バッジ>\n\nコメント内容"}
+  ]
+}
+EOF
+```
+
+- `line` は変更後ファイルの行番号。`side` は原則 `"RIGHT"`、削除行だけ `"LEFT"`。複数行なら `start_line` / `start_side` も入れる
+- heredoc は `<<'EOF'` で展開を止め、SHA などはリテラルで埋める
+- 422（行が diff 範囲外など）→ 該当コメントを外して再試行し、外したものを報告する。403 → 権限不足を報告して停止。その他 → 内容を報告して停止
+
+### 6-3. 完了報告
+
+PR番号とタイトル、イベント、重要度別のコメント件数、Lead 判定の件数（Act on / Consider / Noted / Dismissed）、追加レビュアー（無ければ「追加: なし」）、URL（投稿成功時は必須）、PR レベル所感、バッジのフォールバック件数。再レビュー時は理由別の抑制件数とレビューラウンドも。投稿しなかった場合はそれが 6-1 の正規早期終了であることを明示する。一部失敗は成功と失敗を分けて書く。
+
+### 6-4. worktreeの後始末
+
+投稿しなかった場合も、途中で失敗して停止する場合も `git worktree remove "$WORKTREE_DIR"` で消す（残すと次回に古い HEAD を読む）。未コミット変更などで失敗したら `--force` は使わず、状態を示して判断を仰ぐ。
+
+---
+
+## 再レビュー（`is_re_review == true` のとき）
+
+作者は前回の指摘に対応済みで、同じ箇所への繰り返し指摘は技術的な問題以上に負担になる。diff 全体は読むが投稿基準を上げる。
+
+### R-1. 明示依頼の判定
+
+次のどちらかなら `is_requested_re_review = true`、どちらでもなければ `false`:
+
+1. 1-1 の `reviewRequests` に自分のログイン名がある（re-request review された）
+2. `$ARGUMENTS` が「レビューして」「再レビュー」「もう一度レビュー」「review」「re-review」のようにレビュー実行を求めている。「この部分だけ見て」のような部分的な確認依頼は含めない
+
+### R-2. ガード
+
+| 明示依頼 | 前回 | 前回までの自分のレビュー数 | 動作 |
+|---|---|---|---|
+| あり | `APPROVED` | any | `post_approval_mode = true` で続行（確認しない） |
+| あり | その他 | any | 続行 |
+| なし | `APPROVED` | any | 「このPRは既にAPPROVEしています」と報告して停止。ユーザーが再レビューを指示したときだけ `post_approval_mode = true` で続行 |
+| なし | その他 | 1 | 続行 |
+| なし | その他 | 2以上 | 作者の負担を考えてユーザーに確認し、指示がなければ停止 |
+
+### R-3. 既存コメントの収集
 
 ```bash
 gh api graphql -f query='
@@ -180,9 +367,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
           isOutdated
           path
           line
-          comments(first: 50) {
-            nodes { body, author { login }, createdAt }
-          }
+          comments(first: 50) { nodes { body, author { login }, createdAt } }
         }
       }
     }
@@ -190,716 +375,45 @@ query($owner: String!, $repo: String!, $number: Int!) {
 }' -f owner='{owner}' -f repo='{repo}' -F number=<PR番号>
 ```
 
-取得結果を2つに分類して保持する:
+- `my_previous_comments`: 自分のコメント
+- `other_comments`: 自分以外（bot 含む）のコメントのうち `isResolved == false` かつ `isOutdated == false` のもの。解決済みスレッドは含めない（問題の再発を拾えるように）
 
-- **`my_previous_comments`**: 自分のログイン名と一致するコメント。Phase 4 の一貫性チェックで使用する
-- **`other_comments`**: 自分以外（bot含む）のコメントで `isResolved == false` かつ `isOutdated == false` のもの。Phase 4-5 の重複排除で使用する
+### R-4. 投稿基準
 
----
-
-## Phase 2: コンテキスト理解
-
-差分だけでなく、変更の文脈を把握するために周辺コードを読む。コードは必ずリモートブランチの最新版を参照すること。ローカルのデフォルトブランチも最新化しておくこと。
-
-### 2-0. レビュー用worktreeの準備
-
-Phase 2-1 の周辺コード読み込みや Phase 4 のエージェントによるコード参照では、**PRブランチのコード本体** が必要になる。カレントブランチを直接切り替えると未コミット変更や進行中の作業を破壊する恐れがあるため、レビュー専用の `git worktree` を作って作業ツリーを隔離する。
-
-**ブランチ切り替えではなく必ず worktree を使う**: `git checkout` / `gh pr checkout` で本体ツリーのブランチを書き換えてはならない。
-
-**手順:**
-
-```bash
-# リポジトリルートと、レビュー用worktreeのパスを決める
-REPO_ROOT=$(git rev-parse --show-toplevel)
-WORKTREE_DIR="$REPO_ROOT/.worktrees/pr-<番号>"
-
-# PRのHEADを取得（detached HEADで参照するためローカルブランチは作らない）
-git fetch origin "pull/<番号>/head"
-
-# 既存worktreeの扱い
-if git worktree list --porcelain | grep -q "^worktree $WORKTREE_DIR$"; then
-  # 既にあれば最新の FETCH_HEAD に合わせ直す
-  git -C "$WORKTREE_DIR" reset --hard FETCH_HEAD
-else
-  # なければ新規作成（detachedで作るのでローカルブランチは生まれない）
-  git worktree add --detach "$WORKTREE_DIR" FETCH_HEAD
-fi
-```
-
-**運用上の注意:**
-
-- `WORKTREE_DIR` は **絶対パス** で保持し、Phase 2-1 の Read/Glob/Grep、Phase 4-3 のエージェント prompt にそのまま渡す
-- 本体の作業ツリーやカレントディレクトリを変えない（`cd` しない）
-- worktree作成に失敗した場合（例: ディレクトリが既存ファイルで占有されている等）はユーザーに状況を報告して停止する。強制削除や `--force` を勝手に使わない
-- worktree は Phase 6-4 でクリーンアップする
-
-### 2-1. 周辺コードの読み込み
-
-変更ファイルのうち、特に以下のケースでは周辺コードをファイル読み込みで確認する:
-
-- 関数シグネチャの変更 — 呼び出し元を確認
-- 型定義の変更 — 使用箇所を確認
-- インターフェース/トレイトの変更 — 実装箇所を確認
-- インポートの追加 — 依存先のAPIを確認
-
-全ファイルを読む必要はない。差分から判断して、レビューに必要な範囲だけ読む。
-
-**読み込み対象パスの基点:** Read/Glob/Grep の対象は、Phase 2-0 で用意した `$WORKTREE_DIR` 配下の絶対パスを使う。本体作業ツリー（カレントブランチ）のファイルは読まない。
-
-### 2-2. プロジェクト規約の確認
-
-以下が存在するか確認し、あれば内容を把握する:
-
-- AIアシスタント向け設定ファイル（`CLAUDE.md`, `.cursorrules` 等） — プロジェクトのコーディング規約
-- `CONTRIBUTING.md` — コントリビューションルール
-- PRテンプレート（`.github/pull_request_template.md`）
-
----
-
-## Phase 3: 変更内容の構造的解説
-
-このPhaseではレビュー（良し悪しの判断）は行わない。純粋に「何が変更されたか」を解説する。
-
-### 3-1. 変更内容の解説
-
-- 追加/変更/削除されたファイルの一覧（各ファイルに変更主旨を1行添える）
-- 追加/変更/削除された型・関数・クラスの一覧
-- 各変更の目的と役割
-
-### 3-2. 設計意図の推論
-
-PR差分・本文・関連Issueから以下を推論する:
-
-- **解決する課題**: このPRが何を解決しようとしているか
-- **実装アプローチ**: 選択された方法とその理由
-- **スコープの判断**: 含むもの・含まないもの
-
-不確かな点は「〜と読めますが、意図が違ったら教えてください」のように確認を促す。
-
-### 3-3. 影響分析
-
-- **直接影響**: 変更されたファイルが直接依存している/されているコード
-- **間接影響**: API変更によるクライアントへの影響、スキーマ変更等
-
-### 3-4. レビュアー向けの着眼点
-
-PRの文脈に即した具体的な質問を3〜5個、オープンクエスチョン形式で提示する。
-
----
-
-## Phase 4: コードレビュー
-
-変更されたファイルのみを対象にレビューする。Phase 2で確認したプロジェクト規約があれば、それも加味する。
-
-レビューの心構え: 本当に意味のある問題だけを指摘する。些末な問題を大量に指摘するより、重要な問題を正確に指摘するほうがレビュイーにとって価値がある。「テックリードとしてこのPRのマージを承認する立場で、何が気になるか」という観点で考える。
-
-**再レビュー時のルール（`is_re_review == true` の場合）:**
-
-再レビューでは、全体のdiffを引き続きコンテキストとして読むが、findings の投稿基準を引き上げる。PRオーサーは既に前回のフィードバックに対応する努力をしており、同じ箇所で繰り返し指摘されることは技術的問題以上に心理的ダメージが大きい。
-
-重要度閾値:
-
-| モード | GitHub投稿対象 | 抑制（ユーザー報告のみ） |
+| モード | 投稿する | 抑制（件数だけ報告） |
 |---|---|---|
-| 初回レビュー | fatal, must, suggestion, nit, good | なし |
+| 初回 | fatal, must, suggestion, nit, good | なし |
 | 再レビュー | fatal, must, suggestion | nit, good |
-| APPROVE後再レビュー (`post_approval_mode`) | fatal, must | suggestion, nit, good |
+| `post_approval_mode` | fatal, must | suggestion, nit, good |
 
-`good`（良い実装への称賛）は初回レビューでのみ投稿する。再レビューで改めて褒めると冗長になる。
+- 自分が指摘済み（同一ファイル・行番号差5行以内・同種）の問題は再指摘しない。`other_comments` と実質同一のものも除外する
+- 前回の指摘と矛盾する finding（前回「Aにすべき」→ 今回「Aにすべきでない」）は投稿せず、「前回の指摘と矛盾する可能性があります」とユーザーに相談する
+- 前回指摘に沿って直された箇所への新しい指摘は fatal/must のときだけ。suggestion/nit で追い打ちしない
+- 前回の指摘が直ったかは暗黙に確かめ、個別の「修正確認しました」コメントは書かない
+- 指摘は最大3件に絞り、それを超えるならユーザーに確認する
+- 追加レビュアーの prompt には `my_previous_comments` と「これは再レビューです。前回の指摘と矛盾する指摘や、指摘済みの問題の再指摘はしないでください。」を付ける。`post_approval_mode` なら「APPROVE後の再レビューです。fatal / must レベルの問題だけ報告してください。」も付ける
 
-抑制された findings は GitHub に投稿しない。ユーザーには「抑制: N件」として件数のみ報告する。
+### R-5. サマリー
 
-一貫性ルール（二転三転防止）:
+1〜2行に収め、「前回のレビューでは〜」のような振り返りはしない。fatal も must もなければ「修正確認しました。<LGTM バッジ>」程度で十分。冒頭のトーン:
 
-再レビュー時は Phase 1-9 で取得した `my_previous_comments` を参照し、以下の原則を守る:
-
-1. **既に指摘済みの問題は再指摘しない** — 同じファイル + 行番号差5行以内で、同種の問題を指摘済みの場合はスキップする
-2. **前回の指摘と矛盾する指摘を出さない** — 前回「Aにすべき」と指摘した箇所で「Aにすべきでない」と指摘することは禁止。方針を変えたい場合は GitHub に投稿せず、ユーザーに「前回の指摘と矛盾する可能性があります」と相談する
-3. **前回指摘が対応された箇所への新規指摘は慎重に** — PRオーサーが前回のフィードバックに従って修正した結果に対し、さらに別の問題を指摘する場合は重要度 `fatal` または `must` の場合のみ。`suggestion` / `nit` レベルの追い打ちはしない
-4. **対応確認は暗黙に行う** — 前回の CHANGES_REQUESTED 指摘が修正されたかの確認は、レビュープロセスの中で自然に行う。個別の「修正確認しました」コメントをわざわざ投稿する必要はない（サマリーで全体的に触れれば十分）
-
-### 4-1. Lead がレビューし、足りない視点だけ外注する
-
-親が Lead。Phase 1–3 で Issue / PR本文 / diff を読んだ親が、方向性と致命を自分で書く。`reviewer` は `"lead"`。親は `fatal` を付けてよい。
-
-レビュー用サブエージェントのデフォルトは **0体**。`meta-reviewer` はレビュー経路では起動しない（`self_review` 用の定義は残す）。
-
-追加起動は、親が「自分では判断できない」と 1 文で言えるときだけ:
-
-| 条件 | 起動 | 上限 |
+| 前回 | 今回 | トーン |
 |---|---|---|
-| 通常 | なし | 0 |
-| 親が欠けている視点を 1 文で名付けた | そのスペシャリスト（プールは `consult-specialists` と同じ12体。重なる候補は代表1体） | 合計 2 |
-| 認可・秘密情報・データ消失の差分があり、親が fatal 候補に自信がない | `fatal-reviewer` 1体 | 上記とは別枠 1 |
-
-選定ヒューリスティック（起動条件を満たしたときだけ見る）:
-
-| 差分の兆し | 候補 |
-|---|---|
-| テスト / AC / 仕様記述 | `qa` |
-| auth / 権限 / 秘密情報 / 公開 API | `safety-skeptic` |
-| 障害・リトライ・監視・デプロイ | `failure-pessimist` |
-| UI / 文言 / オンボーディング | `taste` or `friction-maximalist` |
-| 大きな構造変更 / 新モジュール | `architect` or `tech-lead` |
-| 暫定フラグ・二重実装 | `debt-auditor` |
-| 計測・ログ追加 | `data-realist` |
-
-選定結果を `selected_reviewers: string[]` として記録し、ユーザーへ「親レビュー / 追加: …（理由）」と一行報告する。追加が空なら「親レビュー / 追加: なし」で、4-3 は起動せず 4-4 へ親の findings だけを渡す。
-
-**プロジェクト固有エージェント:** Phase 2-3 で検出されたものは候補。4-1 で「欠けている視点を埋める」と名付けたときだけ、スペシャリスト枠（最大2）に含めて起動する。検出しただけでは起動しない。
-
-| 言い訳 | 現実 |
-|---|---|
-| 独立した目が要る | 親が Issue と diff を既に読んでいる。足りない視点だけ外注する |
-| 小規模でも meta+fatal が設計 | その固定起動は廃した。コストが理由 |
-| fatal は fatal-reviewer 専任だから呼ぶ | 親が fatal を付けてよい。呼ぶのは自信がないときだけ |
-| プロジェクトエージェントが検出された | 検出は候補。選んだときだけ起動 |
-
-**Red flags:** 起動報告が「固定: meta, fatal」。findings の reviewer が lead なのに `meta-reviewer` も起動している。4-6 の表に判定列が無い。
-
-**人間にしか検証できない面:** 自動検査が緑でも次は検証されない。差分にこれらがあれば Lead が読む。
-
-- 追加・変更された散文（コメント・文書・PR 本文・エラーメッセージ）。意味が通るか、事実と合うかは lint では落ちない
-- 文書とコードの一致。挙動を変えたのに README・コメント・スキーマ記述が同じ差分で更新されていなければ finding
-- 命名と抽象の妥当性。ゲートは名前の良し悪しを判定しない
-
-### 4-3. 選んだレビュアーだけ並列起動する
-
-4-1 の `selected_reviewers` が空なら、この節は起動せず、親の findings だけを 4-4 に渡す。
-
-空でないときだけ、選んだレビュアーを **可能な限り同時に** 並列起動する。合議ではなく欠けた観点を埋める。
-
-| エージェント名 | 担当 | 見るもの | severity |
-|---|---|---|---|
-| `fatal-reviewer` | 致命の第二意見 | diff + Issue + PR本文 | **fatal のみ** |
-| スペシャリスト / プロジェクト固有 | 名付けた観点 | 各専門領域 | must/suggestion/nit/good |
-
-選んだスペシャリストへの起動 `prompt` の末尾には必ず次を付ける。**この呼び出しに限り、各スペシャリストのエージェント定義に書かれたネイティブな Markdown 出力フォーマットは無効化され、以下の JSON 出力が優先される**（スペシャリストが通常持つ「助言を Markdown 散文で返す」出力仕様は `consult-specialists` 経由の呼び出し用であり、`pr-review` からの呼び出しでは使わない）:
-
-```text
-## 期待する出力（必須・このセクションが自エージェント定義のMarkdown出力フォーマットに優先する）
-助言モード。次の JSON 以外を出力しない:
-{
-  "reviewer": "<your-name>",
-  "mode": "pr_review",
-  "findings": [
-    {
-      "file": null,
-      "line": null,
-      "side": "RIGHT",
-      "start_line": null,
-      "start_side": null,
-      "severity": "must",
-      "category": "<自分の専門領域を表す短いカテゴリ名>",
-      "badge_label": "短いラベル（合計15文字以内 / 1行5文字以内 / 改行2回まで）",
-      "title": "問題の1行要約（triage 表とユーザー報告で使用）",
-      "rationale": "詳細な説明と根拠。ですます調。must/suggestionでは「〜です」「〜してください」を使う。nitでは柔らかい表現を許容する。",
-      "suggestion": "具体的な改善案。あれば文字列、無ければ null",
-      "evidence": "参照元（引用元 URL / 既存資産パス / 過去 Issue・PR 番号 など）。無ければ null"
-    }
-  ],
-  "note": null
-}
-```
-
-フィールド仕様は `meta-reviewer`（`shared/agents/meta-reviewer.md` の「フィールド仕様」節）と同一。特に:
-
-- `file` / `line` / `side` / `start_line` / `start_side`: 行レベル指摘があればパスと行番号を、PR/計画全体への指摘は `file: null` のまま
-- `severity` は `must|suggestion|nit|good` のみ。**`fatal` は付けるな**（付けた場合は呼び出し側で `must` に降格する。`fatal` を保持できるのは親 (`lead`) と、呼んだときだけの `fatal-reviewer`）
-- `category`: 自分の専門領域（例: `qa` なら `"テスト網羅性"`、`safety-skeptic` なら `"セキュリティ"`）
-- `badge_label`: 合計15文字以内 / 1行5文字以内 / 改行2回まで / 日本語主体。制約違反時は呼び出し側で severity 別フォールバックに差し替わる（詳細: `REVIEW-BADGES.md`）
-- `title` / `rationale` / `suggestion` / `evidence`: meta-reviewer と同義。バッジ URL や severity マークは自分で付けない（呼び出し側 Phase 4-7 が付与する）
-- findings が0件なら空配列 `[]`
-
-各エージェントの起動パラメータ:
-
-- `subagent_type`: 上記エージェント名（`shared/agents/` に定義済み）
-- `prompt`: Phase 1-3 で取得した PR コンテキストを渡す。各エージェントは入力プロンプトから **動作モード（`pr_review` / `self_review`）を自動判定** するので、PRレビューでは `pr_number` と PR URL を必ず含める。各 reviewer が「見るもの」だけを渡すのではなく、自分で必要な情報をフィルタするため、原則として以下をすべて渡す:
-  1. PR情報（番号、タイトル、ブランチ、作成者）
-  2. PR本文
-  3. 関連Issue情報
-  4. Phase 3 の設計意図推論結果
-  5. 変更ファイル一覧と各ファイルの変更主旨
-  6. `gh pr diff` の出力（差分全文）
-  7. プロジェクト規約（Phase 2-2 で確認した内容）
-  8. **コード参照ルート（`$WORKTREE_DIR` の絶対パス）**: ファイルを読む必要がある場合はこの worktree 配下を基点にすること、本体作業ツリーやカレントブランチのファイルは読まないこと、を明示する
-  9. **再レビュー時のみ**: `my_previous_comments` の内容（前回自分が指摘したファイル・行・内容の一覧）と以下の指示を追記する:
-     - 「これは再レビューです。前回の指摘と矛盾する新しい指摘は出さないでください。既に指摘済みの問題は再指摘しないでください。」
-     - `post_approval_mode` 時は追加で: 「APPROVE後の再レビューです。fatal / must レベル（正しく動作しない、セキュリティリスク）の問題のみ報告してください。」
-
-各エージェントは出力に `mode` フィールドを含むので、`pr_review` で動いたかを後段で確認できる。
-
-### 4-3A. プロジェクト固有エージェント起動
-
-4-1 で選んだプロジェクト固有エージェントだけを起動する。
-
-起動方法（優先順）: subagent_type で起動 → フォールバック: .md を Read して prompt に埋め込み起動。起動タイミング: 他の追加レビュアーと同一メッセージ内で同時に起動する。
-
-プロンプトの適応: 対象PRのリポジトリがエージェント定義元と異なる場合、エージェントの観点（テスト充足度チェック等）は維持しつつ、対象リポジトリの言語・テストフレームワークに適応した指示をプロンプトに追記する。
-
-### 4-4. 結果の受信
-
-追加レビュアーがいるときだけ結果を待つ。親の findings は最初から平坦化対象に含める。`reviewer` が未設定なら `"lead"` を入れる。エージェント由来の `findings[]` には出所名（例: `"fatal-reviewer"`）を注入する。これは Phase 4-7 の整形でアニメプールを引くために必須。
-
-スペシャリスト・プロジェクト固有の finding が誤って `severity == "fatal"` を返した場合は、統合前に `must` へ降格する（`fatal` を保持できるのは親 (`lead`) と `fatal-reviewer` のみ）。
-
-プロジェクト固有エージェントが JSON 以外（テーブル/テキスト）で返した場合は finding 形式に変換し、重要度を4段階に正規化する（不明ラベルは `suggestion`）。`reviewer` フィールドには `"<agent-name> (project)"` を付与する。パース失敗時はそのエージェントの結果を除外して続行する。
-
-### 4-5. 結果統合
-
-親の findings と、起動したレビュアー（汎用 + プロジェクト固有）の findings を統合する。
-
-**重複検出ルール:**
-
-1. **完全重複**（同一ファイル + 行番号差5行以内 + 内容が実質同一）→ severity 優先: `fatal` > `must` > `suggestion` > `nit`（`good` は別扱い可）。同点は `lead` → `fatal-reviewer` → その他の順で reviewer 名を採用。整形は Phase 4-7 で reviewer 名から再計算するので、ここでバッジやアニメを引き継ぐ必要はない
-2. **部分重複**（同一ファイル + 行番号差5行以内 + 異なる観点からの指摘）→ `fatal` と他側が部分重複する場合は `fatal` を残し、必要なら rationale に他側の根拠を追記する。`fatal` が絡まない場合は rationale / suggestion / evidence を統合して 1 finding にまとめる（reviewer 名は高重要度側を採用、重要度同点時は `lead` を優先）。重要度ラベルは最も高いものを適用
-3. **スペシャリスト由来の fatal 降格**（4-4 で処理済みの前提を再確認）→ スペシャリストが返した finding の `severity == "fatal"` は統合前に必ず `must` に降格されていること。`fatal` を保持できるのは `lead` と `fatal-reviewer` 由来の finding のみ
-4. **クロスソース重複**（汎用 + プロジェクト固有が同一ファイル + 行番号差5行以内 + 同種の指摘）→ プロジェクト固有の指摘を優先（プロジェクト文脈をより深く理解しているため）。コメント本文は統合する
-5. **非重複** → そのまま採用
-6. **自分の前回コメントとの重複**（再レビュー時のみ。`my_previous_comments` と同一ファイル + 行番号差5行以内 + 内容が実質同一）→ 除外する
-7. **他レビュアーのコメントとの重複**（再レビュー時のみ。`other_comments` と同一ファイル + 行番号差5行以内 + 内容が実質同一）→ 除外する。ただし `isResolved == true` のスレッドは除外対象にしない（解決済み問題の再発を検出するため）
-8. **前回指摘との矛盾チェック**（再レビュー時のみ）— finding が `my_previous_comments` の指摘と矛盾する場合（例: 前回「Aを使うべき」→ 今回「Aを使うべきでない」）→ GitHub投稿対象から除外し、ユーザーに「前回の指摘と矛盾する可能性があります」と報告する
-
-**ソート:** fatal → must → suggestion → nit → good の順に並べる。同一重要度内ではファイルパス順。
-
-### 4-5B. Lead 判定（投稿フィルタ）
-
-親は中立な集計係ではない。統合後の各 finding に次のいずれか 1 つを付ける。severity は変えない。
-
-| 判定 | 意味 | GitHub | ユーザー報告 |
-|---|---|---|---|
-| **Act on** | 正しさ・安全・今の目的に照らして手を入れる | 投稿（severity のまま）。冒頭の再レビュー閾値も適用 | 出す |
-| **Consider** | 妥当だが、今直すコストに見合うか不明 | 初回レビューかつ must/suggestion なら投稿。それ以外は出さない | 出す |
-| **Noted** | 妥当だが今は動かさない | 出さない | 件数＋一行 |
-| **Dismissed** | 誤り・文脈違い・揚げ足 | 出さない | なぜ捨てたか一行（覆せるように） |
-
-モード閾値（Phase 4 冒頭の表）と Lead 判定の両方を満たしたものだけが投稿対象。判定列が無い 4-6 の表は未完了。
-
-**Dismissed に落とす典型:**
-
-- **緑のゲートが既に強制している指摘** — lint・型・テストが落とすものを人間のコメントで繰り返さない
-- この PR が導入していない既存の問題
-- 好みの差で、リポジトリ規約が既に決めているもの
-
-較正は「この指摘で作者が実際に手を動かすか」の1問に置く。動かない指摘は Noted か Dismissed に落とす。厳しくしすぎると本当の指摘が埋もれ、緩くすると投稿がノイズになる。
-
-### 4-5A. ここで終了しない（次は Phase 5）
-
-ここまでで親の findings（+ 選んだレビュアー）を統合し Lead 判定を付けた。この時点はスキルの中間地点であり、完了ではない。
-
-- findings の重複排除・Lead 判定・並び替えが終わったことをもってスキルを完了したと判定しない
-- 4-6 の検出結果整理を経て、必ず Phase 5（コメント作成）と Phase 6（GitHub 投稿）へ進む
-
-非対話的に実行されている場合も同じ。中間出力（findings 表、サマリー文面、エージェントの raw 出力など）を返したことをもって完了報告に代えてはならない。
-
-### 4-6. 検出結果の整理
-
-4-5 / 4-5B の結果を以下の表形式で整理する。**判定列は必須**。プロジェクト固有エージェントが起動された場合はソース列を追加する。**「問題の内容」列には各 finding の `title` フィールドをそのまま転記する**。本文（`rationale`）は表には展開せず、Phase 4-7 で整形して GitHub に投稿される。
-
-```text
-| # | ファイル:行 | 問題の内容 | 重要度 | 判定 | 観点 | ソース |
-|---|-----------|-----------|--------|------|------|--------|
-| 1 | src/foo.rs:42 | 認可チェックが抜けていて他ユーザーのデータが読める | fatal | Act on | 致命 | lead |
-| 2 | crates/app/src/bar.rs | AC #3 のシナリオに対応するテストが存在しない | must | Consider | テスト網羅性 | qa |
-| 3 | （PR全体） | 既存の `lib/auth/middleware.rs` で同じ機能を提供しており、車輪の再発明になっている | suggestion | Noted | 方向性 | lead |
-| 4 | crates/app/src/bar.rs | 仕様変更にプロジェクト固有のドメインテストが含まれていない | must | Dismissed | プロジェクト固有 | spec-reviewer (project) |
-```
-
-問題が0件の場合はその旨を報告し、Phase 5でAPPROVEコメントのみ作成する。
-
-### 4-7. コメント整形
-
-dedup・ソート済みの `findings[]` を入力に、GitHub Pull Request Review API に投稿する `comments[]` を組み立てる決定的処理。reviewer は素材（`title` / `rationale` / `suggestion` / `evidence`）のみを返すので、ここでバッジ・アニメ・本文の合成を一括で行う。
-
-**前提:** Phase 4-4 で各 reviewer の `findings[]` を平坦化する際、各 finding に `reviewer` フィールド（`"lead"` または出所エージェント名）を注入してある。dedup で勝った side の `reviewer` 名がそのまま生き残る。
-
-**mojiemoji-github スキルへの委譲（必須）:**
-
-バッジ URL の組み立ては **`mojiemoji-github` スキル経由で行う**。手書き URL は禁止 — `background=transparent` 等の必須パラメータ欠落事故（2026-05-12 triage-review batch の前例）を避けるため、URL 構築はヘルパースクリプト一本に揃える。
-
-このフェーズに入る前に以下を実施する:
-
-1. `Skill` ツールで **`mojiemoji-github:mojiemoji-github`**（プラグイン名前空間つきが正式 ID）を起動し、パラメータ要件（`background=transparent` 必須、ダークモードセーフ色、有効な animation/font 名）をコンテキストに読み込む
-2. ヘルパースクリプトのパスを確定する。優先順:
-   - `CLAUDE_PLUGIN_ROOT` 環境変数が設定されていればその下: `$CLAUDE_PLUGIN_ROOT/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`
-   - 既定のキャッシュパス: `~/.claude/plugins/marketplaces/mojiemoji-plugin/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`
-   - どちらも見つからなければユーザーに報告して停止
-
-**マッピング定義:**
-
-reviewer-signature の決定的マッピング（pr-review 固有のレビュアー識別性。mojiemoji-github の汎用多様性ルールより優先）:
-
-```text
-ANIMATION_POOL = {
-  "fatal-reviewer": ["gatagata", "shuchusen", "bure", "chuuou_zoom"],
-  "lead":           ["shuchusen", "bure", "gatagata", "poyoon"],
-  "meta-reviewer":  ["shuchusen", "bure", "gatagata", "poyoon"],
-}
-SPECIALIST_ANIMATION_POOL = ["yoko_scroll", "mochimochi", "bane", "poyoon"]
-# ANIMATION_POOL に存在しない reviewer 名（動的スペシャリスト・プロジェクト固有エージェント等）は SPECIALIST_ANIMATION_POOL にフォールバック
-
-SEVERITY_COLOR_MAP = {
-  "fatal":      "vivid-red",
-  "must":       "vivid-red",
-  "suggestion": "vivid-blue",
-  "nit":        "vivid-green",
-  "good":       "pastel-green",
-}
-
-# badge_label が空 / 制約違反のときに使うフォールバック
-SEVERITY_FALLBACK_LABEL = {
-  "fatal":      "致命",
-  "must":       "要修正",
-  "suggestion": "オススメ",
-  "nit":        "ちょっと\n気になる",
-  "good":       "いいね",
-}
-
-# badge_label のバリデーション制約（mojiemoji 仕様準拠）
-BADGE_LABEL_MAX_TOTAL    = 15  # 改行を除く総文字数
-BADGE_LABEL_MAX_PER_LINE = 5   # 1 行あたり文字数
-BADGE_LABEL_MAX_NEWLINES = 2   # 改行回数（=最大 3 行）
-```
-
-`color` の `vivid-*` / `pastel-*` は mojiemoji.jozo.beer のサーバ側プリセット名であり、Tailwind 域指定とは別系列。レビューバッジは「アクションバッジ」枠（mojiemoji-github SKILL.md 「バッジと併用する」節の例外条項）として扱うため、severity 識別性を優先してこの固定色のままとする。
-
-ラベルは reviewer の `badge_label` 出力を採用し、制約違反時のみ `SEVERITY_FALLBACK_LABEL` に差し替える（バリデーション規則は本フェーズ手順 4 で定義）。詳細は `REVIEW-BADGES.md` の「badge_label の制約」節を参照。
-
-**手順:**
-
-1. `reviewer_indices = {}` を用意（reviewer 名 → カウンタ）
-2. dedup・ソート済みの `findings[]` を順に走査する
-3. `file == null` の finding は GitHub の `comments[]` には載せない（Phase 6-2 の Reviews API が `path` 必須のため）。代わりに「PR レベル所感」としてユーザーへの最終報告（Phase 6-3）に列挙する
-4. `file != null` の各 finding について:
-   - `reviewer = finding["reviewer"]`
-   - `pool = ANIMATION_POOL.get(reviewer, SPECIALIST_ANIMATION_POOL)`
-   - `i = reviewer_indices.get(reviewer, 0)`
-   - `animation = pool[i % len(pool)]`
-   - `reviewer_indices[reviewer] = i + 1`
-   - `severity = finding["severity"]`
-   - `color = SEVERITY_COLOR_MAP[severity]`
-   - **`label` の決定（バリデーションとフォールバック）**:
-     - `candidate = finding.get("badge_label")`
-     - 以下のいずれかに該当する場合、`label = SEVERITY_FALLBACK_LABEL[severity]` に差し替える:
-       1. `candidate` が空 / null / 未指定
-       2. 改行（`\n`）回数が `BADGE_LABEL_MAX_NEWLINES` を超える（=4 行以上になる）
-       3. いずれかの行の文字数が `BADGE_LABEL_MAX_PER_LINE` を超える
-       4. 全行合計の文字数（改行を除く）が `BADGE_LABEL_MAX_TOTAL` を超える
-       5. いずれかの行が日本語を 1 文字も含まない（記号・英数字のみで構成されている。`N+1` のように単発の記号・英数字が日本語と混じるのは許容）
-     - 上記いずれにも該当しなければ `label = candidate`
-     - フォールバックが発動した finding は、ユーザー報告（Phase 6-3）で「badge_label がフォールバック対象になりました（理由: ...）」として件数のみ伝える
-   - **バッジ Markdown はヘルパースクリプトで生成する**:
-     ```bash
-     ruby "$HELPER" --text "$LABEL" \
-       --color "$COLOR" --animation "$ANIM" --font gothic-bold
-     # 出力は ![<label>](https://mojiemoji.jozo.beer/emoji/<label>?...&background=transparent) 形式
-     # ラベルに改行を含む場合は --text に literal `\n` を渡せば %0A にエンコードされる
-     ```
-     スクリプトはデフォルトで `background=transparent` を必ず付与する（mojiemoji-github 必須要件を満たす）
-   - `badge_md = <スクリプト出力の trim>`
-   - `body = badge_md + "\n\n" + finding["rationale"]`
-   - `finding["suggestion"]` があれば `body += "\n\n**改善案:** " + finding["suggestion"]` を末尾追加
-   - `comments[]` に `{"path": file, "line": line, "side": side or "RIGHT", "body": body}` を append（`start_line` / `start_side` が finding にあれば併せて入れる）
-5. 整形済み `comments[]` を Phase 6-2 へ渡す
-
-**判断ルール:**
-
-- `title` は本文に出さない（triage 表とユーザー報告での要約用途のみ）
-- `rationale` 内に既にある絵文字（👀⚠️💡🙏👍🎉）はそのまま尊重する。post-process しない
-- アニメインデックスは dedup・ソート後の配列を走査しながら reviewer 名ごとに再カウントする。reviewer 元出力時の i は使わない
-- **`rationale` 本文への mojiemoji 飽和（インライン埋め込み）は行わない** — mojiemoji-github SKILL.md 「Review summary body」節の明示ルール: `comments[]` フィールドの inline findings は装飾せず素のまま残す（findings は技術引用で grep 性が重要）。先頭の severity バッジのみ「アクションバッジ」例外で許可される
+| `CHANGES_REQUESTED` | fatal なし | 前回の致命が解消したことを認め、肯定的に |
+| `CHANGES_REQUESTED` | fatal あり | まだマージできない致命がある旨を端的に |
+| `COMMENTED` | fatal なし | 引き続き良い旨を |
+| `COMMENTED` | fatal あり | 新たに致命的な点が見つかった旨を |
+| `APPROVED` | fatal あり | APPROVE 後に致命的な点に気づいた旨を丁寧に |
+| `APPROVED` | fatal・must なし | 明示依頼なら肯定的に（明示依頼でなければ投稿しない） |
+| `APPROVED` | fatal なし・must あり | 気になる点が見つかった旨を端的に（`COMMENT` なので LGTM バッジは付けない） |
 
 ---
 
-## Phase 5: コメント作成
+## 完了前チェック
 
-### 5-1. 重要度分類
+最終報告の直前に確かめる。1つでも「いいえ」なら該当箇所へ戻って続ける。
 
-| 重要度 | 意味 | 例 |
-|--------|------|-----|
-| **must** | 正しく動作しない、セキュリティリスク、要件未充足 | nullアクセスでクラッシュ、SQLインジェクション、要件の未実装 |
-| **suggestion** | より良い実装が存在する | エラーメッセージの改善、リファクタリング提案 |
-| **nit** | 些細な改善点 | typo、スタイルの統一 |
-| **good** | 良い実装、学びになるパターン | 巧みなエラーハンドリング、良い抽象化 |
-
-### 5-2. インラインコメントの書き方
-
-インラインコメント本文の **整形（バッジ URL・先頭装飾・suggestion 追記）は Phase 4-7 で機械的に処理される**。reviewer エージェントは構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返すだけで、URL の構築は行わない。
-
-`badge_label` は **その finding が「何の話か」を 15 文字以内の日本語で端的に表す短いラベル**（例: `根本原因外` / `AC漏れ` / `N+1警戒` / `見事な\n抽象化`）。文字数・改行・文字種の詳細制約と severity 別のフォールバックは `REVIEW-BADGES.md` の「badge_label の制約」節を参照。Phase 4-7 が制約違反を検出した場合は severity 別フォールバック（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）に差し替える。
-
-**reviewer に残る「文化」（rationale 内で守られるべきもの）:**
-
-- ですます調で書く
-- テックリードとして根拠を明示した判断を述べる。曖昧な表現を避け、何が問題で何をすべきかを明確にする
-  - 良い例: 「ここ、nullが来るとクラッシュします。チェックを入れてください」
-  - 悪い例: 「null参照の可能性が検出されました。適切なバリデーションの実装が推奨されます」
-- must/suggestion では「〜かも」「〜しそう」「〜な気がします」を使わない。「〜です」「〜してください」「〜しましょう」で判断を明示する。nit のみ「〜でもいいかもしれません」のような柔らかい表現を許容する
-- 改善案は `suggestion` フィールドに分離して書く（rationale 末尾に書いてもよいが、できれば構造化する）
-- たまに「!」や絵文字を rationale 内で使って、人間らしい温かみを出す
-  - 頻度は各 reviewer の感覚で「ごくたまに」程度。連続して使うと不自然なので、使わない finding の方が多くてよい
-  - 「!」は肯定的な文脈で使う（称賛、感謝、同意）。問題指摘では使わない
-  - 絵文字は文末に 1 つだけ添える。以下から選ぶ:
-    - 👀 注目してほしい箇所
-    - 👍 良い実装への賛同
-    - 🎉 LGTM・称賛
-    - ⚠️ 潜在的リスクへの注意喚起
-    - 💡 提案・アイデア
-    - 🙏 感謝
-  - 例: 「このエラーハンドリング、丁寧でいいですね 👍」
-- サマリーとインラインコメントは別物。サマリーは PR 全体の印象を伝える場で、個別の指摘内容を繰り返す場ではない
-
-**整形フェーズ（Phase 4-7）が機械的に処理するもの:**
-
-- severity → color の決定（`vivid-red` / `vivid-blue` / `vivid-green` / `pastel-green`）
-- `badge_label` のバリデーション（合計 15 文字 / 1 行 5 文字 / 改行 2 回まで / 日本語主体）と、失敗時の severity 別フォールバックラベル（`要修正` / `オススメ` / `ちょっと\n気になる` / `いいね`）への差し替え
-- reviewer 別アニメプールからの選択とローテーション
-- バッジ URL の構築（**mojiemoji-github のヘルパースクリプト経由**で `background=transparent` 等の必須パラメータを担保）と rationale 先頭への prepend
-- `suggestion` フィールドの末尾追記（`**改善案:** ...`）
-
-バッジ URL ビルド規則の正典は `REVIEW-BADGES.md` を参照。実際の URL 構築は mojiemoji-github スキル経由で行うため、ハードコード URL は使わない（Phase 4-7 「mojiemoji-github スキルへの委譲」節を参照）。
-
-### 5-3. レビューサマリー
-
-レビューサマリーは GitHub Pull Request Review の `body` として投稿される。テックリードとしてマージ判断を含むトーンで書く。
-
-**サマリーの役割:**
-
-サマリーはテックリードとしてのマージ判断とPR全体への評価を伝える場であり、個別の指摘を伝える場ではない。個別の指摘はすべてインラインコメントが担う。読み手はサマリーの直後にインラインコメントを見るため、サマリーでインラインの内容に言及する必要はない。
-
-**mojiemoji-github スキルへの委譲（必須）:**
-
-サマリー本文（`body` フィールド）は mojiemoji-github SKILL.md でいう **review summary body surface** にあたる。インラインコメント（`comments[]`）と違い、ここは **loud（インライン飽和）デフォルト** が適用される — 本文中の 2 字熟語（`完璧` / `綺麗` / `修正` / `観点` / `確認` 等）にインライン埋め込みで mojiemoji スタンプを差し込む。
-
-サマリー本文の素案を日本語散文として書き上げた後、以下の手順で整形する:
-
-1. `Skill` ツールで `mojiemoji-github:mojiemoji-github` を起動し、本スキルのコンテキストに mojiemoji-github の規約（`verdict × finding-count` トーン表、インライン飽和ルール、Hard contract）を読み込む
-2. サマリー素案から埋め込み候補の語（2 字熟語中心、識別子・パスは除外）を抽出し、`mojiemoji-selector` サブエージェントにディスパッチする。コントラクトは:
-   ```text
-   SURFACE: review-summary-body
-   MODE:    inline
-   TONE:    loud
-   PHRASES:
-   - <語1> — <文中での意図>
-   - <語2> — <文中での意図>
-   CONSTRAINTS:
-   - Every URL MUST include &background=transparent
-   - background は必須、outline=darker outline_width=2
-   - Animation diversity 12+、underused tier 3+、color 4+ hex
-   - Inline only（block / セクション末オチ装飾 / 締めの装飾は禁止）
-   ```
-3. 返ってきたスニペット表を素案に当てはめ、本文中の該当語を `<img>` インラインスタンプに置換する
-4. 整形後の本文を `references/verification.md` § Post-dispatch spot-check に従ってチェック（必須パラメータ欠落、identifier スタンプ漏れ、3 連スタンプ）してから Phase 6-2 に渡す
-
-**例外:** サマリーが 1 行で済む再レビューや極めて短い場合は、無理に飽和させず Unicode 絵文字（🎉 / ✨ / 👍）で trailing 装飾するだけでもよい。mojiemoji-github SKILL.md「鉄則: スタンプ禁止 identifier」と「文章を分割する以前に mojiemoji にしなくていい」原則を優先する。
-
-**APPROVE 時の LGTM バッジ:**
-
-レビューイベントが `APPROVE` になる場合（`fatal` なしかつ `must` なしで投稿対象の指摘が実質ゼロ、または APPROVE 後再レビューで `fatal` なしかつ `must` なし）、サマリー本文に **LGTM バッジ** を埋め込む。`must` が残っている場合はイベントが `COMMENT` になるため LGTM バッジは使わない。テキストの `LGTM 🎉` の代わりに mojiemoji の画像バッジを使う。
-
-ラベルは `LGTM` 固定だが、装飾（color / animation / font）は APPROVE のたびにバリエーションを変えて「祝祭感」を出す。実装は **`mojiemoji-selector` サブエージェントに loud で委譲する**:
-
-1. すでに本フェーズ序盤でサマリー本文整形のために `mojiemoji-selector` を起動している場合は、同じバッチ内で LGTM バッジも依頼する（PHRASES に `LGTM` を 1 件追加するだけでよい）
-2. それ以外（サマリー素案がほぼ空、または LGTM だけで済む場合）は新たに `mojiemoji-selector` を起動し、以下のコントラクトで依頼する:
-   ```text
-   SURFACE: review-summary-body
-   MODE:    lgtm-badge
-   TONE:    loud
-   PHRASES:
-   - LGTM — マージ可の宣言
-   CONSTRAINTS:
-   - Every URL MUST include &background=transparent
-   - ラベルは "LGTM" 固定（差し替え禁止）
-   - 装飾（color / animation / font）はバリエーション最大化
-   - block ではなく inline `<img>` スニペットで返す
-   ```
-3. 返ってきた `<img>` スニペットをそのままサマリー本文に貼り込む
-
-ヘルパースクリプト直接呼び出し（旧 `ruby "$HELPER" --text "LGTM" --color orange --animation kira --font gothic-bold`）は廃止。`mojiemoji-github` 側で都度装飾を選ぶことで `background=transparent` 等の必須要件と装飾多様性を同時に担保する。詳細は `REVIEW-BADGES.md` の「APPROVE 時 LGTM バッジ（特別枠）」節を参照。
-
-`COMMENT` / `REQUEST_CHANGES` のサマリーには LGTM バッジは付けない（マージ判断と矛盾するため）。
-
-**構成ルール:**
-
-1. 冒頭にマージ判断を一文で書く — fatalがあれば「修正が必要です」、なければ「マージしてOKです」のように判断を明示する。mustのみ（fatalなし）の場合は「気になる点はあるがマージブロックではない」トーンを使ってよい（例:「気になる点はありますが、マージ自体は問題ありません」）
-2. fatal/mustがある場合は問題の **領域** に触れてよい（例: 「エラーハンドリング周りに気になるところがあります」）。ただし具体的な指摘内容（どの関数で何が起きているか等）はインラインに任せ、サマリーでは繰り返さない
-3. 設計方針やアーキテクチャについて議論が必要な場合のみ、補足を書く
-4. 件数の統計表は書かない
-5. Markdownの見出し（##, ###）は使わない
-6. 「インラインで書きました」「詳細はインラインを見てください」等、インラインコメントの存在に言及しない。GitHubのUIで自明であり、情報量がない
-7. 全体で1-4行に収める
-8. **再レビューの場合**（`is_re_review == true`）は1-2行に収める。fatalもmustもなければ「LGTM」等の一言で十分。「前回のレビューでは〜」のような冗長な振り返りはしない
-
-**バリエーションの原則:**
-
-サマリーを毎回同じ型で書かない。以下の4つの「文の型」を意識し、直近のレビューと異なる型を使う:
-
-1. **判断から入る** — マージ可否を述べてから補足。例: 「問題ありません。マージしてOKです。」
-2. **変更の核心から入る** — PRの主題に直接触れる。例: 「認証フローの刷新、設計・実装ともに良いです。」
-3. **端的に評価する** — 一言で済ませる。APPROVE 時は `mojiemoji-selector` 経由で LGTM バッジを生成して使う（上記「APPROVE 時の LGTM バッジ」節を参照）。装飾は毎回変わるので「同じ LGTM」にならない。
-4. **修正要求から入る** — fatalがある場合、マージブロッカーを端的に伝える。例: 「エラーハンドリングに修正が必要です。」
-
-型の選び方: PRの内容・規模に応じて自然な型を選ぶ。ただし「印象から入る + ただ、」の型を連続で使うのは避けること。
-
-**再レビュー時のサマリー補正:**
-
-`is_re_review == true` の場合、冒頭の一文を以下の方針で書く:
-
-| 前回の状態 (`previous_review_state`) | 今回の結果 | 冒頭のトーン |
-|--------------------------------------|-----------|-------------|
-| `CHANGES_REQUESTED` | fatalなし | 前回の致命指摘が解消されたことを認めつつ、肯定的に |
-| `CHANGES_REQUESTED` | fatalあり | まだマージできない致命がある旨を端的に |
-| `COMMENTED` | fatalなし | 引き続き良い感じである旨を |
-| `COMMENTED` | fatalあり | 新しく致命的な点が見つかった旨を |
-| `APPROVED` | fatalあり | APPROVEした後に致命的な点に気づいた旨を丁寧に |
-| `APPROVED` | fatalなし・mustなし | `is_requested_re_review == true`: 肯定的に（「問題なさそうです」等）。`false`: （GitHub に投稿しない） |
-| `APPROVED` | fatalなし・mustあり | 「気になる点が見つかった」旨を端的に（`COMMENT` になるため LGTM バッジは使わない） |
-
-**再レビューサマリー例:**
-
-再レビューのサマリーは初回より短く、あっさりと書く。fatalもmustもなければ1行で済ませる。APPROVE になる場合は LGTM バッジを使う（`mojiemoji-selector` 経由で生成。装飾はバリエーション最大化。上記「APPROVE 時の LGTM バッジ」節参照）。例:
-> 修正確認しました。<LGTM バッジ（mojiemoji-selector 生成）>
-
-再レビューでの指摘は最大3件に絞る。それ以上ある場合はユーザーに確認する。
-
-**文体ルール:**
-
-| ルール | NG | OK |
-|--------|-----|-----|
-| 冗長な前置きを入れない | 「PRの変更内容を確認しました。全体として〜」 | 「設計・実装ともに良さそうです。」 |
-| 件数で語らない | 「must: 2件を検出しました」 | 「2点ほど直したほうがよさそうなところがあります」 |
-| 敬語は軽めに | 「ご修正いただけますと幸いです」 | 「直してもらえると助かります」 |
-| 判断を明確にする | 「問題がある可能性が考えられます」 | 「ここはバグです。修正してください」 |
-| 絵文字・!は控えめに | 「LGTM 🎉👍✨」 | 「LGTM 🎉」 |
-
-**サマリー例:**
-
-これらは参考であり、コピーして使い回す対象ではない。PRの文脈に合わせて自分の言葉で書くこと。
-
-> 問題ありません。マージしてOKです。テストも十分です。（判断から入る、APPROVE。`完璧` / `OK` 等にインライン埋め込み可）
-> キャッシュ戦略の見直し、設計・実装ともに良いです。（変更の核心から入る、APPROVE。`設計` / `実装` / `見直し` 等にインライン埋め込み可）
-> <LGTM バッジ（mojiemoji-selector 生成）> （端的に評価する、APPROVE）
-> 並行処理周りに修正が必要です。修正してからマージしましょう。（修正要求から入る、REQUEST_CHANGES。`修正` / `要件` 等にインライン埋め込み可）
-
-### 5-4. 校正チェック
-
-サマリー作成後、投稿前に確認する:
-
-- インラインコメントと同じ具体的指摘をサマリーで繰り返していないか
-- 再レビューなのに初回レビューのような文面、または初回なのに「前回」に言及していないか
-- 同僚に口頭で伝えるとしたら不自然でないか
-- 直近3回のレビューサマリーと同じ文の型（同じ文頭パターン、同じ接続構造）を繰り返していないか
-
----
-
-## Phase 6: GitHub投稿
-
-### 6-1. レビューイベントの決定
-
-**初回レビュー時:**
-
-| 条件 | レビューイベント |
-|------|----------------|
-| `severity == "fatal"` の finding が1件以上 | `REQUEST_CHANGES` |
-| fatalなし、かつ must/suggestion/nit のいずれかがある | `COMMENT` |
-| fatalなし、good のみ / 問題なし | `APPROVE` |
-
-マージブロック（`REQUEST_CHANGES`）は常に `fatal` の有無のみで決まる。`must` 単独では `REQUEST_CHANGES` にしない（`COMMENT` に留める）。
-
-**再レビュー時（以下が通常ルールより優先、上から順に最初にマッチした行を適用）:**
-
-| 条件 | レビューイベント |
-|------|----------------|
-| `is_requested_re_review` + `post_approval_mode` + fatalなし + mustなし | `APPROVE`（明示的に依頼された再レビューでは必ず投稿する） |
-| `is_requested_re_review` + `post_approval_mode` + fatalなし + mustあり | `COMMENT`（must が残っている以上、`APPROVE` にはしない） |
-| `is_requested_re_review` + `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
-| `post_approval_mode` + fatalなし + mustなし | **投稿しない**（ユーザーにのみ報告） |
-| `post_approval_mode` + fatalなし + mustあり | `COMMENT`（must をサイレントに握り潰さず投稿する。`REQUEST_CHANGES` にはしない） |
-| `post_approval_mode` + fatalあり | `COMMENT`（`REQUEST_CHANGES` にしない） |
-| 再レビュー（上記以外） | 通常ルール通り |
-
-**「投稿しない」が正規早期終了になるのは `post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false` の場合のみ**。must が1件でも残っている場合は必ず `COMMENT` で投稿する（マージブロックはしないが、must を握り潰して沈黙する/ APPROVE で握り潰すことは禁止）。
-
-### 6-2. コメントJSONの構築と投稿
-
-`comments[]` は Phase 4-7 で整形済み（バッジ prepend、rationale 展開、suggestion 末尾追記まで完了）の状態でこのフェーズに渡る。`file == null` の finding はここで投稿しない（Phase 4-7 で除外済み、Phase 6-3 のユーザー報告に列挙する）。
-
-まずHEAD commit SHAを取得する:
-
-```bash
-gh pr view <番号> --json headRefOid --jq '.headRefOid'
-```
-
-heredocで直接APIに投稿する:
-
-```bash
-gh api repos/{owner}/{repo}/pulls/<番号>/reviews \
-  --method POST \
-  --input - <<'EOF'
-{
-  "event": "COMMENT",
-  "body": "レビューサマリー本文",
-  "commit_id": "<HEAD SHA>",
-  "comments": [
-    {
-      "path": "src/xxx.rs",
-      "line": 42,
-      "side": "RIGHT",
-      "body": "![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold&background=transparent)\n\nコメント内容"
-    }
-  ]
-}
-EOF
-```
-
-注意点:
-- `line` はPR diff上で表示される行番号（変更後のファイルの行番号）を使う
-- `side` は原則 `"RIGHT"`（変更後側）を指定する。削除行にコメントする場合のみ `"LEFT"`
-- 複数行にまたがるコメントが必要な場合は `start_line` と `start_side` も指定する
-- heredocのデリミタを `<<'EOF'` （クォート付き）にすることでシェル変数展開を防ぐ。動的な値（commit SHA等）はリテラルとして埋め込むこと
-
-**エラー時の対応:**
-- 422 Unprocessable Entity（行番号がdiff範囲外等）— 問題のコメントを除外して再試行する。除外したコメントはユーザーに報告する
-- 403 Forbidden — 権限不足を報告して停止する
-- その他のエラー — エラー内容をユーザーに報告して停止する
-
-### 6-3. 完了報告
-
-冒頭の「完了条件 (Definition of Done)」で定義した完了状態に対応する報告を、以下の要件で作成する。**この報告を出してはじめてスキルは完了する**。
-
-報告に含める情報: PR番号+タイトル, イベント種別, コメント件数（重要度別）, Lead 判定の件数（Act on / Consider / Noted / Dismissed）, 起動した追加レビュアー（なければ「追加: なし」）, URL。**投稿が成功した場合、URL は必須**。再レビュー時は追加: 抑制件数（理由別）, レビューラウンド。`post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false` の場合: 「問題なし、GitHubへの投稿なし」旨と、その判断が Phase 6-1 ルール表の正規早期終了であることを明示報告する。`post_approval_mode` + fatalなし + mustあり + `is_requested_re_review == false` の場合: must が残っているため `COMMENT` で投稿した旨を報告（投稿しない判断にはしない）。`post_approval_mode` + fatalなし + `is_requested_re_review == true` の場合: mustなしなら APPROVE、mustありなら COMMENT を投稿した旨を報告。投稿に一部失敗があった場合は、成功・失敗を分けて報告する。
-
-### 6-4. worktreeのクリーンアップ
-
-Phase 2-0 で作成した `$WORKTREE_DIR` を削除する。レビューが「投稿しない」結果（`post_approval_mode` + fatalなし + mustなし + `is_requested_re_review == false`）であっても worktree は片付ける。
-
-```bash
-git worktree remove "$WORKTREE_DIR"
-```
-
-**失敗時の扱い:**
-
-- worktree内に未コミット変更がある等で `remove` が失敗した場合: 強制削除（`--force`）はせず、ユーザーに `$WORKTREE_DIR` の状態を提示して残置の判断を仰ぐ
-- レビュー処理自体が Phase 2-0 以降のいずれかで途中失敗した場合も、原則として worktree を削除してから停止する（残しておくと次回のレビューで「既存worktree再利用」分岐に乗り、古い HEAD を読む事故が起こりうる）。削除に失敗した場合のみ残置を許容し、ユーザーに報告する
-
----
-
-## 完了前セルフチェック
-
-ユーザーへ最終報告を返す直前に、以下を必ず自己点検する。1 問でも「いいえ」がある場合、スキルは未完了である。該当 Phase まで戻って続行すること。
-
-1. Phase 6-2 のレビュー投稿 API 呼び出しを実行したか、または Phase 6-1 のルール表に基づく投稿しない判断（正規早期終了）を確定させたか
-2. 上記のいずれかに対応する報告メッセージを組み立てたか（投稿の場合: PR番号・タイトル・イベント種別・件数・URL。投稿しない場合: その正規理由）
-3. Phase 6-4 の worktree クリーンアップを実行したか（または失敗時の状態をユーザーに伝える準備ができているか）
-4. Phase 4-5 / 4-6 で得た中間成果物（findings 表、サマリー文面、エージェント raw 出力）を「完了報告」と取り違えていないか
-
-すべて「はい」のときに限り、ユーザーへ最終報告を返してよい。
-
-**未完了で戻る場合の動作:**
-
-- Phase 6-2 をスキップしてここに到達していた場合 → Phase 6-1 のレビューイベント決定からやり直す
-- Phase 4-5 直後で停止しかけていた場合 → Phase 4-6 → Phase 5 → Phase 6 の順に進める
-- 正規早期終了に該当することを確認しただけで報告文面を作っていなかった場合 → 報告メッセージを作成してから返す
-
-このチェックは非対話モードでも省略しない。エージェント実行のホストが応答を打ち切る前にここまで到達することがスキルの完了要件である。
+1. 6-2 の投稿を実行したか、または正規早期終了を確定したか
+2. それに対応する 6-3 の報告を書いたか
+3. 6-4 の worktree 後始末を実行したか（失敗なら状態を伝えるか）
+4. findings 表やサマリー文面を完了報告と取り違えていないか

@@ -1,156 +1,60 @@
 # レビューコメント用バッジ定義（mojiemoji 版）
 
-このドキュメントは `pr-review` スキルの **コメント整形フェーズ（Phase 4-7）専用の参照表** です。reviewer（親 `lead` / `fatal-reviewer` / 動的スペシャリスト）は構造化フィールド（`title` / `rationale` / `suggestion` / `evidence` / **`badge_label`**）を返し、Phase 4-7 がそれらを mojiemoji-github スキル経由でバッジ Markdown に組み立てます。
+`pr-review` の 4-6（コメント整形）と Phase 5（LGTM バッジ）が参照する表。画像は <https://mojiemoji.jozo.beer/> が返す。
 
-画像生成 API は <https://mojiemoji.jozo.beer/>（Slack 絵文字サイズの PNG / GIF を返す）を利用します。
+インラインバッジは3要素から成る。重要度は色で、内容はラベルで伝えるので、ラベルが揺れても重要度は読み取れる。
 
-## mojiemoji-github スキルへの委譲（必須）
-
-実際の URL 構築は **`mojiemoji-github` スキル**（プラグイン ID: `mojiemoji-github:mojiemoji-github`）のヘルパースクリプト `scripts/mojiemoji_markdown.rb` 経由で行います。pr-review 側でハードコード URL は使いません。
-
-ヘルパー経由にする理由:
-
-- `background=transparent` が常時付与され、ダークモード GitHub での不可視事故（2026-05-12 triage-review batch の前例）を構造的に防止
-- `animation` / `font` / `color` のキャノニカル値検証が mojiemoji-github 側で集約管理される
-- 将来 mojiemoji.jozo.beer のクエリ仕様が変わっても、pr-review を触らずヘルパー側更新で吸収できる
-
-このドキュメントが定義するのは **「pr-review レビュー識別性」のための severity → color / reviewer → animation の決定的マッピングと、`badge_label` の文字制約・フォールバック規則** であり、URL 文字列そのものではありません。
-
-## バッジの構成要素
-
-インラインバッジ（finding ごと）は次の 3 要素から成る:
-
-| 要素 | 決定主体 | 役割 |
+| 要素 | 決まり方 | 役割 |
 |---|---|---|
-| **ラベル**（`badge_label`） | reviewer エージェント | この finding が何の話かを端的に表す |
-| **color** | severity から決定的に決まる | severity を視認させる SSOT |
-| **animation** | reviewer 名のプール + ローテーション | どの reviewer が指摘したかの識別 |
+| ラベル | reviewer の `badge_label`（違反時はフォールバック） | 何の話か |
+| color | severity から固定 | 重要度 |
+| animation | reviewer 名のプールをローテーション | 誰の指摘か |
 
-severity の伝達は **色**、内容の伝達は **ラベル** に分離することで、ラベルが揺れても重要度の視認性は崩れない設計です。
+## ヘルパー
 
-## badge_label の制約（mojiemoji 仕様準拠）
+URL は `mojiemoji-github` スキルのヘルパー `mojiemoji_markdown.rb` で作り、手書きしない。ヘルパーは `background=transparent` を必ず付け、ダークモードでバッジが見えなくなる事故を防ぐ。
 
-reviewer が出力する `badge_label` は以下の制約に従う:
-
-- **合計 15 文字以内**（日本語）
-- **1 行あたり 5 文字以内**
-- **改行（`\n`）は 2 回まで**（最大 3 行表示）
-- 文字種は **日本語**（漢字・ひらがな・カタカナ）を主とする。記号・英数字は単発でなら混在可（例: `N+1`）だが、語の中心は日本語に置く
-- 改行は `\n` リテラルで表現（ヘルパースクリプトが `%0A` にエンコードする）
-
-例:
-
-| ラベル | 構造 |
-|---|---|
-| `根本原因外` | 5 文字 × 1 行 |
-| `AC漏れ` | 4 文字 × 1 行 |
-| `ちょっと\n気になる` | 4 文字 + 5 文字 = 2 行 |
-| `見事な\n抽象化` | 3 文字 + 4 文字 = 2 行 |
-| `テスト\nが薄い` | 3 文字 + 4 文字 = 2 行 |
-| `N+1\n警戒` | 3 文字 + 2 文字 = 2 行 |
-
-### バリデーションとフォールバック
-
-Phase 4-7 は `badge_label` が以下のいずれかに該当する場合、severity ごとの **フォールバックラベル** へ差し替える:
-
-- 空文字 / null / 未指定
-- 合計 15 文字を超過
-- 1 行あたり 5 文字を超過
-- 改行が 3 回以上
-- 制約外の文字種が支配的（記号・英数字のみで構成される等）
-
-フォールバックラベル:
-
-| severity | フォールバックラベル |
-|---|---|
-| `fatal` | `致命` |
-| `must` | `要修正` |
-| `suggestion` | `オススメ` |
-| `nit` | `ちょっと\n気になる` |
-| `good` | `いいね` |
-
-## severity → color
-
-| severity | color | 意味 |
-|---|---|---|
-| `fatal` | `vivid-red` | マージしたら本番・契約・利用者を壊す |
-| `must` | `vivid-red` | 正しく動作しない、セキュリティリスク、要件未充足 |
-| `suggestion` | `vivid-blue` | より良い実装が存在する |
-| `nit` | `vivid-green` | 些細な改善点 |
-| `good` | `pastel-green` | 良い実装、学びになるパターン |
-
-色は severity から決定的に決まる。reviewer は color を出力しない（Phase 4-7 で付与される）。
-
-## reviewer → animation
-
-各 reviewer は **アニメプール** を持つ。先頭はベース（reviewer 識別用に固定）、2 番目以降はローテーション枠。
-
-| reviewer | アニメプール（ローテーション順） | 意味付け |
-|---|---|---|
-| `fatal-reviewer` | `gatagata` → `shuchusen` → `bure` → `chuuou_zoom` | 致命を揺らし集中線で止める |
-| `lead` | `shuchusen` → `bure` → `gatagata` → `poyoon` | 親 Lead。集中線で前提に視線を奪う／グリッチで前提崩れ／弾みでやわらかく |
-| `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon` | `self_review` 残置。レビュー経路では使わない |
-| `*`（スペシャリスト共通フォールバック） | `yoko_scroll` → `mochimochi` → `bane` → `poyoon` | 動的スペシャリスト共通。個別プールは持たない |
-
-### ローテーション規則
-
-`pr-review` Phase 4-7 が、dedup・ソート後の `findings[]` を走査しながら **reviewer 名ごとに別カウンタ `i` (0-indexed)** を進め、`pool[i % len(pool)]` でアニメを決定する。
-
-- `i = 0`（その reviewer の 1 件目）は必ずベース。findings が 1 件のみのときも識別性が確保される。
-- `i = 1, 2, ...` は順にローテーション枠を消費。プールを使い切ったら先頭に戻る。
-- severity と `badge_label` はアニメ選択に影響しない。
-- reviewer エージェントは i を意識する必要が無い（出力時点ではバッジを付けない）。
-
-## URL ビルド規則
-
-ヘルパースクリプトに以下の引数を渡して生成する:
+パスは `$CLAUDE_PLUGIN_ROOT/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`、無ければ `~/.claude/plugins/marketplaces/mojiemoji-plugin/skills/mojiemoji-github/scripts/mojiemoji_markdown.rb`。どちらも無ければ報告して停止する。
 
 ```bash
-ruby "$HELPER" --text "{badge_label}" \
-  --color "{color}" --animation "{animation}" --font gothic-bold
-```
-
-実体としては概ね次のような URL を出力する（`background=transparent` などはヘルパーが自動付与）:
-
-```
-https://mojiemoji.jozo.beer/emoji/{badge_label}?color={color}&animation={animation}&font=gothic-bold&background=transparent
-```
-
-- ラベルは生の日本語のまま `--text` に渡せる（ヘルパーがエンコードを担当）
-- ラベル内の改行は `--text` に literal `\n` を渡せば `%0A` にエンコードされる
-- `font` は `gothic-bold` 固定
-- `color` は severity ごとに固定。`animation` は reviewer 別ベース＋サブから選ぶ
-
-## バッジ生成例
-
-`pr-review` Phase 4-7 はヘルパースクリプト経由で Markdown 画像参照を生成する。
-
-通常ケース（reviewer が出した `badge_label` を採用、`lead` の i=0、severity=good）:
-
-```bash
-ruby "$HELPER" --text $'見事な\n抽象化' \
-  --color pastel-green --animation shuchusen --font gothic-bold
+ruby "$HELPER" --text $'見事な\n抽象化' --color pastel-green --animation shuchusen --font gothic-bold
 # 出力: ![見事な抽象化](https://mojiemoji.jozo.beer/emoji/見事な%0A抽象化?color=pastel-green&animation=shuchusen&font=gothic-bold&background=transparent)
 ```
 
-フォールバックケース（`badge_label` が空 / 制約違反だった場合、severity=must）:
+ラベルは生の日本語のまま渡せる。改行は literal `\n` で渡すと `%0A` になる。`font` は `gothic-bold` 固定。
 
-```bash
-ruby "$HELPER" --text "要修正" \
-  --color vivid-red --animation chuuou_zoom --font gothic-bold
-# 出力: ![要修正](https://mojiemoji.jozo.beer/emoji/要修正?color=vivid-red&animation=chuuou_zoom&font=gothic-bold&background=transparent)
-```
+## badge_label の制約とフォールバック
 
-## APPROVE 時 LGTM バッジ（特別枠）
+制約: 改行を除いて合計15文字以内、1行5文字以内、改行2回まで（最大3行）、各行に日本語を1文字以上含む（`N+1` のように記号・英数字が日本語と混じるのは可）。
 
-`pr-review` スキルがレビューイベント `APPROVE` を投稿するときのサマリー本文で使う **「装飾バリエーション枠」**。
+例: `根本原因外` / `AC漏れ` / `見事な\n抽象化` / `テスト\nが薄い` / `N+1\n警戒`
 
-- **ラベル**: `LGTM` 固定
-- **color / animation / font**: 都度バリエーション（**`mojiemoji-github` の loud デフォルトに委譲**）
+空・未指定、または制約に違反したら、severity 別のラベルに差し替え、件数を 6-3 で報告する。
 
-固定ラベル × 動的装飾とすることで、APPROVE のたびに見た目が変わる「祝祭感」を出す。reviewer 別アニメプールも severity → color マッピングも適用しない（finding ではなくサマリー装飾だから）。
+| severity | color | フォールバックラベル |
+|---|---|---|
+| `fatal` | `vivid-red` | `致命` |
+| `must` | `vivid-red` | `要修正` |
+| `suggestion` | `vivid-blue` | `オススメ` |
+| `nit` | `vivid-green` | `ちょっと\n気になる` |
+| `good` | `pastel-green` | `いいね` |
 
-実装上は Phase 5-3 のサマリー本文整形と同じく `mojiemoji-selector` サブエージェントを呼ぶ。コントラクトは:
+`vivid-*` / `pastel-*` は mojiemoji のサーバ側プリセット名。レビューバッジは mojiemoji-github の「アクションバッジ」例外として、重要度が読み取れるようこの固定色を使う。
+
+## reviewer → animation
+
+| reviewer | プール（ローテーション順） |
+|---|---|
+| `fatal-reviewer` | `gatagata` → `shuchusen` → `bure` → `chuuou_zoom` |
+| `lead` | `shuchusen` → `bure` → `gatagata` → `poyoon` |
+| `meta-reviewer` | `shuchusen` → `bure` → `gatagata` → `poyoon`（`self_review` 用。レビュー経路では使わない） |
+| その他（スペシャリスト） | `yoko_scroll` → `mochimochi` → `bane` → `poyoon` |
+
+統合・並べ替え後の順に走査し、reviewer 名ごとのカウンタ `i`（0始まり）で `pool[i % len(pool)]` を使う。各 reviewer の1件目は必ず先頭のアニメになる。severity とラベルはアニメに影響しない。
+
+## APPROVE 時の LGTM バッジ
+
+ラベルは `LGTM` 固定で、装飾は毎回変える。reviewer のプールや severity の色は使わない。`mojiemoji-selector` サブエージェントに次の契約で依頼する:
 
 ```text
 SURFACE: review-summary-body
@@ -160,38 +64,7 @@ PHRASES:
 - LGTM — マージ可の宣言
 CONSTRAINTS:
 - Every URL MUST include &background=transparent
-- ラベルは "LGTM" 固定
-- 装飾（color / animation / font）はバリエーション最大化（直近の APPROVE と被らない選定が望ましい）
+- ラベルは "LGTM" 固定（差し替え禁止）
+- 装飾（color / animation / font）はバリエーション最大化
+- block ではなく inline `<img>` スニペットで返す
 ```
-
-`COMMENT` / `REQUEST_CHANGES` のサマリーには LGTM バッジは付けない（マージ判断と矛盾するため）。
-
-## 重複統合とバッジ
-
-`pr-review` Phase 4-5 で複数エージェントの findings を 1 finding に統合するとき、`reviewer` フィールドと `badge_label` は Phase 4-5 のルール 2 に従って決定される。詳細は `SKILL.md` Phase 4-5 を参照。
-
-color・animation は Phase 4-7 の整形時に、勝った `reviewer` 名と severity と「Phase 4-7 内での出現順 i」から決定する。reviewer 側で事前確定する必要はない。
-
-## 動作確認
-
-最終確認: 2026-05-23（`badge_label` 動的化に伴う簡素化）
-
-`badge_label` は可変なので個別の URL 検証はしない（ヘルパーがエンコードと必須パラメータを担保する）。color × animation の代表的組合せが 200 / image/gif を返すことだけ確認する。
-
-| color | animation | status | content-type |
-|---|---|---|---|
-| `vivid-red` | `shuchusen` | 200 | image/gif |
-| `vivid-red` | `chuuou_zoom` | 200 | image/gif |
-| `vivid-red` | `yoko_scroll` | 200 | image/gif |
-| `vivid-blue` | `shuchusen` | 200 | image/gif |
-| `vivid-blue` | `bane` | 200 | image/gif |
-| `vivid-green` | `gatagata` | 200 | image/gif |
-| `vivid-green` | `mochimochi` | 200 | image/gif |
-| `pastel-green` | `poyoon` | 200 | image/gif |
-
-LGTM バッジは `mojiemoji-github` 委譲なのでサーバ側で都度生成される。サンプル動作確認:
-
-| ラベル | color | animation | font | status |
-|---|---|---|---|---|
-| `LGTM` | `orange` | `kira` | `gothic-bold` | 200 |
-| `LGTM` | `vivid-pink` | `nijuumaru` | `maru` | 200 |
