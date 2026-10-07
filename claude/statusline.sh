@@ -13,80 +13,123 @@ _mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0;
 # ─── OSC 8 hyperlink helper ───
 _link() { echo "\033]8;;${1}\007${2}\033]8;;\007"; }
 
-# ─── Powerline separator (nerdfont U+E0B0) ───
-PL=$(printf '\xee\x82\xb0')
+# ─── Nerdfont Powerline Extra glyphs for the band outline ───
+# Ends are ice waveforms; the divider is a ◤◢ pair whose gap is a one-cell slanted stripe.
+# Ghostty widens a symbol to two cells only rightward and only over a blank next cell
+# (renderer/cell.zig constraintWidth), so the left end is followed by an unpainted space:
+# its wave then spreads over the terminal bg, mirroring the right end, not into the band.
+ICE_L=$(printf '\xee\x83\x8a')   # U+E0CA ice waveform mirrored (solid on the right)
+ICE_R=$(printf '\xee\x83\x88')   # U+E0C8 ice waveform (solid on the left)
+LR=$(printf '\xee\x82\xba')      # ◢ lower-right
+UL=$(printf '\xee\x82\xbc')      # ◤ upper-left
 
-# ─── Segment palette (harmonized — semantic hues at unified saturation/lightness) ───
-# Each background is its semantic hue rendered at the same S≈40% / L≈28%, so the
-# blocks read as one coordinated set; backdrops (status/gauges) sit darker on purpose.
-# L1 identity
-BG_VER="#363C4E"         # slate (metadata)
-BG_MODEL="#2B3E64"       # blue
-BG_MODE="#432B64"        # purple
-# L2 workspace
-BG_REPO="#2B645C"        # teal
-BG_BRANCH="#2B4C64"      # sky blue
-BG_WORKTREE="#2B643E"    # green
-BG_ISSUE="#6A2F6A"       # magenta (ticket)
-BG_STATUS="#22262F"      # dark neutral (git-count backdrop)
-# L3 resources
-BG_GAUGE="#2F364C"       # ctx
-BG_RATE="#1C2131"        # 5h / 7d gauges (dark so bars pop)
-BG_COST="#6D5D2C"        # gold
-# PR review_state
-BG_PR_APPROVED="#29653D" # green
-BG_PR_PENDING="#6D5D2C"  # amber
-BG_PR_CHANGES="#762D33"  # red
-BG_PR_DRAFT="#424757"    # slate
+# ─── Palette (Ghostty theme 0x96f, bg #262427) ───
+# 地はティールから青への横グラデーション1本、色はアイコンに任せる。文字は主と副の明度2段で
+# 優先度を表し、アクセント色は状態（差分・PR・ゲージ）にだけ使う。地が中明度なので、
+# 文字のアクセントはテーマ色を淡くした値にしてコントラストを保つ。ゲージは自前の暗い空きの上に
+# 塗るので、淡くしない。
+C_GRAD_FROM="#2A6B65"    # band gradient, left edge (teal)
+C_GRAD_TO="#2B5A88"      # band gradient, right edge (blue)
+C_FG="#FCFCFA"           # primary
+C_SUB="#D4E9E5"          # secondary
+C_RED="#FFA3A8"
+C_GREEN="#D2F58A"
+C_YELLOW="#FFE07A"
+C_CYAN="#CFF8FC"
+C_LAVENDER="#E0D8FF"
+# Gauge fills (not text)
+C_TRACK="#282C40"        # empty track
+C_USE_OK="#9ECE6A"
+C_USE_WARN="#E0AF68"
+C_USE_CRIT="#F7768E"
+C_TIME="#7DCFFF"         # window time elapsed
 
-# Foreground colors
-FG_LIGHT="#C0CAF5"       # Tokyo Night foreground (cool white)
-FG_MODE="#ECE6FF"        # light purple
-FG_COST="#FFF1C9"        # light gold
+# ─── Text / pill builders ───
+# Strings carry literal \033 escapes, interpreted once by `echo -e` at output.
+_t() { printf '\\033[38;2;%sm%s' "$(h2r "$1")" "$2"; }               # $1=color $2=text
+_b() { printf '\\033[1;38;2;%sm%s\\033[22m' "$(h2r "$1")" "$2"; }    # bold
 
-# ─── Segment builder (Powerline: each separator carries the previous bg) ───
-_prev=""
-_out=""
+# Markers resolved by the gradient painter at output: \001 = band background on,
+# \002 = next char is an outline glyph (fg takes the gradient colour at its column).
+_BG="\001"
+_CAP="\033[0m\002"
 
-_sep() {  # transition from previous segment bg into next bg ($1)
-  [ -n "$_prev" ] && _out+="\033[38;2;$(h2r "$_prev")m\033[48;2;$(h2r "$1")m${PL}"
+_join() {  # non-empty items → one cell body, separated by two spaces
+  local out="" it
+  for it in "$@"; do
+    [ -z "$it" ] && continue
+    [ -n "$out" ] && out+="${_BG}  "
+    out+="${_BG}${it}"
+  done
+  printf '%s' "$out"
 }
 
-_seg() {  # $1=bg $2=fg $3=text
-  _sep "$1"
-  _out+="\033[48;2;$(h2r "$1")m\033[38;2;$(h2r "$2")m ${3} "
-  _prev="$1"
+# Display width as the terminal draws it: escapes 0, East Asian Wide/Fullwidth 2,
+# combining marks / ZWJ / VS16 0. Ambiguous (▀, …) counts 1 like Ghostty.
+_w() {
+  printf '%s' "$1" | perl -CS -0777 -ne '
+    s/\\033\]8;;.*?\\007//g; s/\\033\[[0-9;]*m//g; s/\\00[12]//g;
+    my $n = () = /./gs; my $wide = () = /[\p{EA=W}\p{EA=F}]/g; my $zero = () = /[\p{Mn}\x{200D}\x{FE0F}]/g;
+    print $n + $wide - $zero'
 }
 
-_seg_raw() {  # $1=bg $2=content (may contain ANSI fg codes)
-  _sep "$1"
-  _out+="\033[48;2;$(h2r "$1")m ${2}\033[48;2;$(h2r "$1")m "
-  _prev="$1"
+_trunc() {  # $1=text $2=max display width; cut with … when wider
+  printf '%s' "$1" | MAX="$2" perl -CS -0777 -ne '
+    my @c = split //; my $cw = sub { $_[0] =~ /[\p{EA=W}\p{EA=F}]/ ? 2 : 1 };
+    my $tot = 0; $tot += $cw->($_) for @c;
+    if ($tot <= $ENV{MAX}) { print join "", @c; exit }
+    my ($w, $o) = (0, ""); for (@c) { last if $w + $cw->($_) > $ENV{MAX} - 1; $o .= $_; $w += $cw->($_) }
+    print "$o\x{2026}"'
 }
 
-_end() {  # trailing separator drawn on the terminal background
-  [ -n "$_prev" ] && _out+="\033[0m\033[38;2;$(h2r "$_prev")m${PL}\033[0m"
-  _prev=""
+# ─── Layout: CELL[row*3+col] → one band per row, three blocks split by slanted dividers ───
+# Every row has the same width. Each divider steps one column left per row so the rows
+# draw parallel "/" lines; padding keeps every block's content left-aligned. The third
+# block (and its divider) is drawn only when some row has a cell for it.
+# (Flat arrays: macOS /bin/bash is 3.2.)
+CELL=()
+_sp() { printf '%*s' "$1" ''; }
+
+_render() {  # prints the visible rows
+  local r k n rows=() i w0 w1 w2 line
+  for (( r=0; r<3; r++ )); do
+    [ -n "${CELL[r*3]}${CELL[r*3+1]}${CELL[r*3+2]}" ] && rows+=("$r")
+  done
+  n=${#rows[@]}
+  w0=${COLW[0]:-0}; w1=${COLW[1]:-0}; w2=${COLW[2]:-0}
+  for (( k=0; k<n; k++ )); do
+    i=$(( ${rows[k]} * 3 ))
+    line="${_CAP}${ICE_L} ${_BG} ${CELL[i]}${_BG}$(_sp $(( w0 - ${CW[i]:-0} + n - 1 - k ))) ${_CAP}${UL}${_CAP}${LR}"
+    line+="${_BG} $(_sp "$k")${CELL[i+1]}${_BG}"
+    if [ "$w2" -gt 0 ]; then
+      line+="$(_sp $(( w1 - ${CW[i+1]:-0} + n - 1 - k ))) ${_CAP}${UL}${_CAP}${LR}"
+      line+="${_BG} $(_sp "$k")${CELL[i+2]}${_BG}$(_sp $(( w2 - ${CW[i+2]:-0} )))"
+    else
+      line+="$(_sp $(( w1 - ${CW[i+1]:-0} )))"
+    fi
+    printf '%s\\n' "${line} ${_CAP}${ICE_R}\033[0m"
+  done
 }
 
 # ─── Two-tier gauge (▀ U+2580) ───
 # Renders two independent horizontal bars in one row: fg = top tier, bg = bottom tier.
 # $1=top% ("" → top dim)  $2=bottom% ("" → bottom dim)  $3=width(default 18)
-# Emits literal \033 escape sequences (interpreted later by `echo -e`).
 gauge2() {
   local top="$1" bot="$2" w="${3:-18}"
-  local tf=0 bf=0 ta="40;44;64"
+  local track; track=$(h2r "$C_TRACK")
+  local tf=0 bf=0 ta="$track"
   if [ -n "$top" ]; then
     tf=$(( top * w / 100 ))
-    if   [ "$top" -ge 90 ]; then ta="247;118;142"   # red
-    elif [ "$top" -ge 70 ]; then ta="224;175;104"   # amber
-    else                         ta="158;206;106"; fi # green
+    if   [ "$top" -ge 90 ]; then ta=$(h2r "$C_USE_CRIT")
+    elif [ "$top" -ge 70 ]; then ta=$(h2r "$C_USE_WARN")
+    else                         ta=$(h2r "$C_USE_OK"); fi
   fi
   [ -n "$bot" ] && bf=$(( bot * w / 100 ))
-  local ba="125;207;255" td="40;44;64" bd="40;44;64" i bar="" fg bg  # ba=cyan(time), td/bd=empty track
+  local ba i bar="" fg bg
+  ba=$(h2r "$C_TIME")
   for (( i=0; i<w; i++ )); do
-    if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$td"; fi
-    if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$bd"; fi
+    if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$track"; fi
+    if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$track"; fi
     bar+="\033[38;2;${fg}m\033[48;2;${bg}m▀"
   done
   printf '%s' "$bar"
@@ -96,7 +139,6 @@ gauge2() {
 #  Extract data from JSON (all guarded with // empty)
 # ═══════════════════════════════════════
 MODEL=$(echo "$input" | jq -r '.model.display_name // empty')
-VER=$(echo "$input" | jq -r '.version // empty')
 EFFORT=$(echo "$input" | jq -r '.effort.level // empty')
 THINKING=$(echo "$input" | jq -r '.thinking.enabled // false')
 STYLE=$(echo "$input" | jq -r '.output_style.name // empty')
@@ -111,6 +153,18 @@ FIVE_RESET=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 FIVE_USE=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 SEVEN_RESET=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 SEVEN_USE=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+CTX_SIZE=$(echo "$input" | jq -r '.context_window.context_window_size // empty')
+REPO_HOST=$(echo "$input" | jq -r '.workspace.repo.host // empty')
+REPO_OWNER=$(echo "$input" | jq -r '.workspace.repo.owner // empty')
+REPO_NAME=$(echo "$input" | jq -r '.workspace.repo.name // empty')
+SESSION_NAME=$(echo "$input" | jq -r '.session_name // empty')
+FAST=$(echo "$input" | jq -r '.fast_mode // false')
+DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
+LINES_ADD=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
+LINES_DEL=$(echo "$input" | jq -r '.cost.total_lines_removed // empty')
+CACHE_WARM=$(echo "$input" | jq -r '.prompt_cache.warm | values')  # keeps false (// would drop it)
+CACHE_EXPIRES=$(echo "$input" | jq -r '.prompt_cache.expires_at // empty')
+CACHE_HIT=$(echo "$input" | jq -r '.prompt_cache.hit_ratio // empty | . * 100 | round')
 
 # Current context token count (input + cache_creation + cache_read)
 CUR_TOK=""
@@ -118,19 +172,16 @@ if [ -n "$CTX_USAGE" ] && [ "$CTX_USAGE" != "null" ]; then
   CUR_TOK=$(echo "$CTX_USAGE" | jq '(.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0)')
 fi
 
-# ─── Repo: owner/repo from git remote, fallback to dirname ───
-DIR=""
-if remote_url=$(git remote get-url origin 2>/dev/null); then
-  remote_url="${remote_url%.git}"
-  repo="${remote_url##*/}"; owner="${remote_url%/*}"; owner="${owner##*[:/]}"
-  [ -n "$owner" ] && [ -n "$repo" ] && DIR="${owner}/${repo}"
-fi
-[ -z "$DIR" ] && DIR="${PROJECT_DIR##*/}"
+# ─── Repo: owner/repo from workspace.repo, fallback to dirname ───
+owner="$REPO_OWNER"; repo="$REPO_NAME"
+DIR="${PROJECT_DIR##*/}"
+[ -n "$owner" ] && [ -n "$repo" ] && DIR="${owner}/${repo}"
 
 # ─── GitHub HTTPS base URL (for OSC 8 hyperlinks) ───
+# host can be an ssh alias such as personal.github.com
 GH_BASE_URL=""
 if [ -n "$owner" ] && [ -n "$repo" ]; then
-  case "$remote_url" in
+  case "$REPO_HOST" in
     *github.com*) GH_BASE_URL="https://github.com/${owner}/${repo}" ;;
   esac
 fi
@@ -179,16 +230,15 @@ if [ -n "$ISSUE_NUM" ] && [ -n "$GH_BASE_URL" ]; then
   fi
 fi
 
-# ─── Git status (fg-colored text with bg maintained for segment) ───
+# ─── Git status: +added -deleted ?untracked ───
 git_stat() {
-  local bg_e="\033[48;2;$(h2r "$BG_STATUS")m"
   local a=0 d=0 u=0
   eval "$(git diff HEAD --numstat 2>/dev/null | awk '{ a+=$1; d+=$2 } END { printf "a=%d d=%d",a+0,d+0 }')"
   u=$(git status --short 2>/dev/null | grep -c '^??')
   local r=""
-  [ "$a" -gt 0 ] && r+="\033[38;2;158;206;106m${bg_e}+${a}"
-  [ "$d" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="\033[38;2;247;118;142m${bg_e}-${d}"; }
-  [ "$u" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="\033[38;2;224;175;104m${bg_e}?${u}"; }
+  [ "$a" -gt 0 ] && r+="$(_t "$C_GREEN" "+${a}")"
+  [ "$d" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="$(_t "$C_RED" "-${d}")"; }
+  [ "$u" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="$(_t "$C_YELLOW" "?${u}")"; }
   echo "$r"
 }
 GSTAT=$(git_stat)
@@ -215,108 +265,142 @@ if [ -n "$SEVEN_RESET" ]; then
   TIME7=$(( (604800 - remain) * 100 / 604800 ))
 fi
 
-# ─── Cost cluster text (dollar only) ───
-COST_SEG=""
-[ -n "$COST_USD" ] && COST_SEG=$(printf '💰 $%.2f' "$COST_USD")
-
-# ─── Mode cluster text (effort / thinking / output_style) ───
-MODE_PARTS=""
-[ -n "$EFFORT" ] && MODE_PARTS+="💭 ${EFFORT}"
-if [ "$THINKING" = "true" ]; then
-  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="✨ thinking"
-fi
-if [ -n "$STYLE" ] && [ "$STYLE" != "default" ]; then
-  [ -n "$MODE_PARTS" ] && MODE_PARTS+="  "; MODE_PARTS+="🎨 ${STYLE}"
-fi
-
 # ═══════════════════════════════════════
-#  Line 1: Claude info + mode
+#  Cells — columns: identity | amount | this session
+#    row 0 where:  repo + location + PR | diff | session name
+#    row 1 who:    model + mode         | ctx  | prompt cache (time left, hit ratio)
+#    row 2 budget: 5h/7d gauges         | cost | elapsed, lines edited
+#  Gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
 # ═══════════════════════════════════════
-_out=""
-[ -n "$VER" ]   && _seg "$BG_VER" "$FG_LIGHT" "💥${VER}"
-[ -n "$MODEL" ] && _seg "$BG_MODEL" "#FFFFFF" "🤖 ${MODEL}"
-[ -n "$MODE_PARTS" ] && _seg "$BG_MODE" "$FG_MODE" "${MODE_PARTS}"
-_end
-LINE1="$_out"
-
-# ═══════════════════════════════════════
-#  Line 2: Git / GitHub info + PR
-# ═══════════════════════════════════════
-_out=""
-
 if [ -n "$GH_BASE_URL" ]; then
-  _seg "$BG_REPO" "#FFFFFF" "🚀 $(_link "$GH_BASE_URL" "$DIR")"
+  repo_item="🚀 $(_b "$C_FG" "$(_link "$GH_BASE_URL" "$DIR")")"
 else
-  _seg "$BG_REPO" "#FFFFFF" "🚀 ${DIR}"
+  repo_item="🚀 $(_b "$C_FG" "$DIR")"
 fi
 
-# Location label: issue title > worktree > branch
+# Location: issue title > worktree > branch
+loc_item=""
 if [ -n "$ISSUE_TITLE" ] && [ -n "$ISSUE_URL" ]; then
-  _disp="$ISSUE_TITLE"
-  [ ${#_disp} -gt 40 ] && _disp="${_disp:0:39}…"
-  _seg "$BG_ISSUE" "#FFFFFF" "🎫 $(_link "$ISSUE_URL" "#${ISSUE_NUM}: ${_disp}")"
+  _disp=$(_trunc "$ISSUE_TITLE" 32)
+  loc_item="🎫 $(_link "$ISSUE_URL" "$(_t "$C_CYAN" "#${ISSUE_NUM}") $(_t "$C_FG" "$_disp")")"
 elif [ -n "$WORKTREE" ]; then
-  _seg "$BG_WORKTREE" "#FFFFFF" "⌥ ${WORKTREE}"
+  loc_item="⌥ $(_t "$C_GREEN" "$WORKTREE")"
 elif [ -n "$BRANCH" ]; then
   if [ -n "$GH_BASE_URL" ]; then
-    _seg "$BG_BRANCH" "#FFFFFF" "⚡$(_link "${GH_BASE_URL}/tree/${BRANCH}" "$BRANCH")"
+    loc_item="⚡$(_t "$C_CYAN" "$(_link "${GH_BASE_URL}/tree/${BRANCH}" "$BRANCH")")"
   else
-    _seg "$BG_BRANCH" "#FFFFFF" "⚡${BRANCH}"
+    loc_item="⚡$(_t "$C_CYAN" "$BRANCH")"
   fi
 fi
 
-[ -n "$GSTAT" ] && _seg_raw "$BG_STATUS" "$GSTAT"
-
-# PR segment (official .pr field — no gh call needed)
+# PR (official .pr field — no gh call needed)
+pr_item=""
 if [ -n "$PR_NUM" ]; then
-  pr_label="🔀#${PR_NUM}"
   case "$PR_STATE" in
-    approved)          pr_bg="$BG_PR_APPROVED"; pr_label+=" ✅approved" ;;
-    changes_requested) pr_bg="$BG_PR_CHANGES";  pr_label+=" ❌changes" ;;
-    draft)             pr_bg="$BG_PR_DRAFT";    pr_label+=" 🐤draft" ;;
-    pending)           pr_bg="$BG_PR_PENDING";  pr_label+=" ✋pending" ;;
-    *)                 pr_bg="$BG_PR_DRAFT" ;;
+    approved)          pr_state=" ✅$(_t "$C_GREEN" approved)" ;;
+    changes_requested) pr_state=" ❌$(_t "$C_RED" changes)" ;;
+    draft)             pr_state=" 🐤$(_t "$C_SUB" draft)" ;;
+    pending)           pr_state=" ✋$(_t "$C_YELLOW" pending)" ;;
+    *)                 pr_state="" ;;
   esac
-  if [ -n "$PR_URL" ]; then
-    _seg "$pr_bg" "#FFFFFF" "$(_link "$PR_URL" "$pr_label")"
-  else
-    _seg "$pr_bg" "#FFFFFF" "$pr_label"
+  pr_item="🔀$(_b "$C_FG" "#${PR_NUM}")"
+  [ -n "$PR_URL" ] && pr_item=$(_link "$PR_URL" "$pr_item")
+  pr_item+="$pr_state"
+fi
+
+model_item=""
+[ -n "$MODEL" ] && model_item="🤖 $(_b "$C_FG" "$MODEL")"
+effort_item="";   [ -n "$EFFORT" ] && effort_item="💭 $(_t "$C_LAVENDER" "$EFFORT")"
+thinking_item=""; [ "$THINKING" = "true" ] && thinking_item="✨ $(_t "$C_LAVENDER" thinking)"
+style_item="";    [ -n "$STYLE" ] && [ "$STYLE" != "default" ] && style_item="🎨 $(_t "$C_LAVENDER" "$STYLE")"
+fast_item="";     [ "$FAST" = "true" ] && fast_item="⏩ $(_t "$C_LAVENDER" fast)"
+
+five_item="";  { [ -n "$FIVE_USE" ]  || [ -n "$TIME5" ]; } && five_item="⏰ $(gauge2 "${FIVE_USE%.*}" "$TIME5" 12)"
+seven_item=""; { [ -n "$SEVEN_USE" ] || [ -n "$TIME7" ]; } && seven_item="📆 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)"
+
+# Context: tokens in use / window size (1000000 → 1M, 200000 → 200k)
+ctx_item=""
+if [ -n "$CUR_TOK" ]; then
+  ctx_item="🧠 $(_t "$C_FG" "$(printf "%'d" "$CUR_TOK")")"
+  if [ -n "$CTX_SIZE" ]; then
+    if [ $(( CTX_SIZE % 1000000 )) -eq 0 ]; then size="$(( CTX_SIZE / 1000000 ))M"; else size="$(( CTX_SIZE / 1000 ))k"; fi
+    ctx_item+=" $(_t "$C_SUB" "/ $size")"
   fi
 fi
-_end
-LINE2="$_out"
 
-# ═══════════════════════════════════════
-#  Line 3: ctx (token#) + 5h/7d two-tier gauges + cost
-#  Two-tier gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
-# ═══════════════════════════════════════
-_out=""
-
-# 🧠 ctx: token count only
-if [ -n "$CUR_TOK" ]; then
-  ge="\033[48;2;$(h2r "$BG_GAUGE")m"
-  _seg_raw "$BG_GAUGE" "\033[38;2;$(h2r "$FG_LIGHT")m${ge}🧠 $(printf "%'d" "$CUR_TOK")"
+# Prompt cache: time until the warm cache expires (yellow in the last minute), then cold
+cache_item=""
+if [ "$CACHE_WARM" = "true" ] && [ -n "$CACHE_EXPIRES" ] && [ $(( ${CACHE_EXPIRES%.*} - $(date +%s) )) -gt 0 ]; then
+  left=$(( ${CACHE_EXPIRES%.*} - $(date +%s) ))
+  cache_color="$C_FG"; [ "$left" -le 60 ] && cache_color="$C_YELLOW"
+  cache_item="🔥 $(_t "$cache_color" "$(printf '%d:%02d' $(( left / 60 )) $(( left % 60 )))")"
+elif [ -n "$CACHE_WARM" ]; then
+  cache_item="🧊 $(_t "$C_RED" cold)"
 fi
+hit_item=""; [ -n "$CACHE_HIT" ] && hit_item="🎯 $(_t "$C_SUB" "${CACHE_HIT}%")"
 
-# ⏰ 5h gauge: usage (top) / time-elapsed (bottom)
-if [ -n "$FIVE_USE" ] || [ -n "$TIME5" ]; then
-  re="\033[48;2;$(h2r "$BG_RATE")m"
-  _seg_raw "$BG_RATE" "\033[38;2;$(h2r "$FG_LIGHT")m${re}⏰ $(gauge2 "${FIVE_USE%.*}" "$TIME5" 12)${re}"
+# Session: name, elapsed wall time, lines Claude added/removed
+session_item=""; [ -n "$SESSION_NAME" ] && session_item="💬 $(_t "$C_FG" "$(_trunc "$SESSION_NAME" 28)")"
+dur_item=""
+if [ -n "$DURATION_MS" ]; then
+  s=$(( ${DURATION_MS%.*} / 1000 ))
+  if   [ "$s" -ge 3600 ]; then dur="$(( s / 3600 ))h$(printf '%02d' $(( s % 3600 / 60 )))m"
+  elif [ "$s" -ge 60 ];   then dur="$(( s / 60 ))m"
+  else                         dur="${s}s"; fi
+  dur_item="⏳ $(_t "$C_SUB" "$dur")"
 fi
+lines_item=""
+[ -n "$LINES_ADD$LINES_DEL" ] && lines_item="📝 $(_t "$C_GREEN" "+${LINES_ADD:-0}") $(_t "$C_RED" "-${LINES_DEL:-0}")"
 
-# 📆 7d gauge: usage (top) / time-elapsed (bottom)
-if [ -n "$SEVEN_USE" ] || [ -n "$TIME7" ]; then
-  re="\033[48;2;$(h2r "$BG_RATE")m"
-  _seg_raw "$BG_RATE" "\033[38;2;$(h2r "$FG_LIGHT")m${re}📆 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)${re}"
-fi
+CELL[0]=$(_join "$repo_item" "$loc_item" "$pr_item")
+CELL[1]=$(_join "$GSTAT")
+CELL[2]=$(_join "$session_item")
+CELL[3]=$(_join "$model_item" "$effort_item" "$thinking_item" "$style_item" "$fast_item")
+CELL[4]=$(_join "$ctx_item")
+CELL[5]=$(_join "$cache_item" "$hit_item")
+CELL[6]=$(_join "$five_item" "$seven_item")
+[ -n "$COST_USD" ] && CELL[7]=$(_join "💰 $(_t "$C_SUB" "$(printf '$%.2f' "$COST_USD")")")
+CELL[8]=$(_join "$dur_item" "$lines_item")
 
-# Cost ($ only)
-[ -n "$COST_SEG" ] && _seg "$BG_COST" "$FG_COST" "$COST_SEG"
-_end
-LINE3="$_out"
+# Column width = widest cell in that column
+CW=(); COLW=()
+for (( i=0; i<9; i++ )); do
+  [ -z "${CELL[i]}" ] && continue
+  CW[i]=$(_w "${CELL[i]}")
+  c=$(( i % 3 ))
+  [ "${CW[i]}" -gt "${COLW[c]:-0}" ] && COLW[c]=${CW[i]}
+done
 
-# ─── Output ───
+# ─── Output: one horizontal gradient shared by all rows ───
+rows=$(_render)
 echo -en "\033[0m"
-echo -e "$LINE1"
-echo -e "$LINE2"
-echo -e "$LINE3"
+echo -en "$rows" | GRAD_FROM=$(h2r "$C_GRAD_FROM") GRAD_TO=$(h2r "$C_GRAD_TO") perl -CS -0777 -ne '
+  my @from = split /;/, $ENV{GRAD_FROM}; my @to = split /;/, $ENV{GRAD_TO};
+  my $tok = qr/\G(\e\[[0-9;]*m|\e\]8;;[^\a]*\a|.)/s;
+  sub cw { my $c = shift; $c =~ /[\p{Mn}\x{200D}\x{FE0F}]/ ? 0 : $c =~ /[\p{EA=W}\p{EA=F}]/ ? 2 : 1 }
+  my @lines = split /\n/;
+  my $W = 1;
+  for my $l (@lines) {
+    my $w = 0;
+    while ($l =~ /$tok/gc) { my $t = $1; $w += cw($t) unless $t =~ /^[\e\x01\x02]/ }
+    $W = $w if $w > $W;
+  }
+  sub grad { my $p = $W > 1 ? $_[0] / ($W - 1) : 0; join ";", map { int($from[$_] + ($to[$_] - $from[$_]) * $p + 0.5) } 0..2 }
+  for my $l (@lines) {
+    my ($col, $pill, $cap, $out) = (0, 0, 0, "");
+    pos($l) = 0;  # the width pass left pos at the end (/c keeps it)
+    while ($l =~ /$tok/gc) {
+      my $t = $1;
+      if    ($t eq "\x01") { $pill = 1 }
+      elsif ($t eq "\x02") { $cap = 1 }
+      elsif ($t =~ /^\e/)  { $pill = 0 if $t =~ /^\e\[(?:0?m|48;)/; $out .= $t }  # explicit bg (gauge) or reset ends pill paint
+      else {
+        my $g = grad($col);
+        if    ($cap)  { $out .= "\e[49;38;2;${g}m$t\e[39m"; $cap = 0 }
+        elsif ($pill) { $out .= "\e[48;2;${g}m$t" }
+        else          { $out .= $t }
+        $col += cw($t);
+      }
+    }
+    print "\e[0m$out\n";  # Claude Code trims leading spaces; an escape first keeps the indent
+  }'
