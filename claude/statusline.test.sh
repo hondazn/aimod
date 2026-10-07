@@ -104,9 +104,19 @@ run "cache-cold" "$REPO" '{"model":{"display_name":"Opus"},"prompt_cache":{"warm
 run "cache-expired" "$REPO" '{"model":{"display_name":"Opus"},"prompt_cache":{"warm":true,"expires_at":1000}}' \
   -- "🧊 cold" ! "🔥"
 
-# 8) layout: each ◤◢ divider (U+E0BC U+E0BA) steps one column left per row (parallel "/"
-#    lines across rows), every block's content starts at the same column on every row,
-#    and the end glyphs sit at the same columns on every row.
+# 7d) startup (shape captured from 2.1.292 before the first response): current_usage null,
+#     no prompt_cache, no session_name → dim placeholders keep every slot filled
+run "startup" "$REPO" '{
+  "session_id":"72820269-655d-498f-aba4-10e8de828a78","model":{"display_name":"Opus 5.5"},
+  "workspace":{"project_dir":"/x/aimod"},
+  "cost":{"total_cost_usd":0,"total_duration_ms":10754,"total_lines_added":0,"total_lines_removed":0},
+  "context_window":{"context_window_size":1000000,"current_usage":null}
+}' -- "🚧" "🧠 0 / 1M" "🔥 --:--" "🎯 --%" "💬 72820269" '💰 $0.00' "📝 +0 -0" ! "🧊" "655d"
+
+# 8) layout: each ◣◥ divider (U+E0B8 U+E0BE) steps one column right per row (parallel "\"
+#    lines across rows), the first block's content starts at the same column on every row,
+#    the others start one column right of the row above, and the end glyphs sit at the
+#    same columns on every row.
 layout=$( cd "$REPO" && printf '%s' '{
   "model":{"display_name":"Opus"},"effort":{"level":"high"},"thinking":{"enabled":true},"session_name":"statusline",
   "workspace":{"project_dir":"/x/aimod"},"pr":{"number":42,"review_state":"approved"},
@@ -120,10 +130,10 @@ layout=$( cd "$REPO" && printf '%s' '{
   for my $c (split //) {
     my $glyph = $c =~ /[\x{E0B0}-\x{E0D4}]/;
     $first = $col if $glyph && $first < 0;
-    if ($c eq "\x{E0BA}" && $prev eq "\x{E0BC}") { push @divs, $col - 1; $after = 1 }
+    if ($c eq "\x{E0BE}" && $prev eq "\x{E0B8}") { push @divs, $col - 1; $after = 1 }
     elsif ($after && $first >= 0 && !$glyph && $c ne " ") { push @starts, $col; $after = 0 }
     $last = $col if $glyph;
-    $col += $c =~ /[\p{EA=W}\p{EA=F}]/ ? 2 : 1; $prev = $c;
+    $col += $c =~ /[\p{Mn}\x{200D}\x{FE0F}]/ ? 0 : $c =~ /[\p{EA=W}\p{EA=F}]/ ? 2 : 1; $prev = $c;
   }
   print join(",", @divs), " ", join(",", @starts), " $first $last\n"' | awk '
   { d[NR] = $1; s[NR] = $2; f[NR] = $3; l[NR] = $4 }
@@ -131,8 +141,10 @@ layout=$( cd "$REPO" && printf '%s' '{
     ok = (NR == 3 && split(d[1], a, ",") == 2 && split(s[1], b, ",") == 3)
     for (i = 2; i <= NR; i++) {
       split(d[i-1], p, ","); n = split(d[i], c, ",")
-      if (n != 2 || c[1] != p[1] - 1 || c[2] != p[2] - 1) ok = 0
-      if (s[i] != s[1] || f[i] != f[1] || l[i] != l[1]) ok = 0
+      if (n != 2 || c[1] != p[1] + 1 || c[2] != p[2] + 1) ok = 0
+      split(s[i-1], q, ","); m = split(s[i], t, ",")
+      if (m != 3 || t[1] != q[1] || t[2] != q[2] + 1 || t[3] != q[3] + 1) ok = 0
+      if (f[i] != f[1] || l[i] != l[1]) ok = 0
     }
     print ok ? "ok" : "rows=" NR " divs=" d[1] "|" d[2] "|" d[3] " starts=" s[1] "|" s[2] "|" s[3] " ends=" f[1] "-" l[1] "|" f[2] "-" l[2] "|" f[3] "-" l[3]
   }' )

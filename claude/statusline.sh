@@ -14,14 +14,14 @@ _mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0;
 _link() { echo "\033]8;;${1}\007${2}\033]8;;\007"; }
 
 # ─── Nerdfont Powerline Extra glyphs for the band outline ───
-# Ends are ice waveforms; the divider is a ◤◢ pair whose gap is a one-cell slanted stripe.
+# Ends are ice waveforms; the divider is a ◣◥ pair whose gap is a one-cell slanted stripe.
 # Ghostty widens a symbol to two cells only rightward and only over a blank next cell
 # (renderer/cell.zig constraintWidth), so the left end is followed by an unpainted space:
 # its wave then spreads over the terminal bg, mirroring the right end, not into the band.
 ICE_L=$(printf '\xee\x83\x8a')   # U+E0CA ice waveform mirrored (solid on the right)
 ICE_R=$(printf '\xee\x83\x88')   # U+E0C8 ice waveform (solid on the left)
-LR=$(printf '\xee\x82\xba')      # ◢ lower-right
-UL=$(printf '\xee\x82\xbc')      # ◤ upper-left
+LL=$(printf '\xee\x82\xb8')      # ◣ lower-left
+UR=$(printf '\xee\x82\xbe')      # ◥ upper-right
 
 # ─── Palette (Ghostty theme 0x96f, bg #262427) ───
 # 地はティールから青への横グラデーション1本、色はアイコンに任せる。文字は主と副の明度2段で
@@ -32,13 +32,14 @@ C_GRAD_FROM="#2A6B65"    # band gradient, left edge (teal)
 C_GRAD_TO="#2B5A88"      # band gradient, right edge (blue)
 C_FG="#FCFCFA"           # primary
 C_SUB="#D4E9E5"          # secondary
+C_DIM="#93BDB8"          # placeholder before data arrives
 C_RED="#FFA3A8"
 C_GREEN="#D2F58A"
 C_YELLOW="#FFE07A"
 C_CYAN="#CFF8FC"
 C_LAVENDER="#E0D8FF"
 # Gauge fills (not text)
-C_TRACK="#282C40"        # empty track
+C_TRACK="#1B3B45"        # empty track: recessed band shade, not a hole
 C_USE_OK="#9ECE6A"
 C_USE_WARN="#E0AF68"
 C_USE_CRIT="#F7768E"
@@ -83,9 +84,10 @@ _trunc() {  # $1=text $2=max display width; cut with … when wider
 }
 
 # ─── Layout: CELL[row*3+col] → one band per row, three blocks split by slanted dividers ───
-# Every row has the same width. Each divider steps one column left per row so the rows
-# draw parallel "/" lines; padding keeps every block's content left-aligned. The third
-# block (and its divider) is drawn only when some row has a cell for it.
+# Every row has the same width. Each divider sits one column further right than the row above,
+# drawing parallel "\" lines, and the text after a divider follows it; the first block stays
+# left-aligned against the straight end. The third block (and its divider)
+# is drawn only when some row has a cell for it.
 # (Flat arrays: macOS /bin/bash is 3.2.)
 CELL=()
 _sp() { printf '%*s' "$1" ''; }
@@ -99,13 +101,13 @@ _render() {  # prints the visible rows
   w0=${COLW[0]:-0}; w1=${COLW[1]:-0}; w2=${COLW[2]:-0}
   for (( k=0; k<n; k++ )); do
     i=$(( ${rows[k]} * 3 ))
-    line="${_CAP}${ICE_L} ${_BG} ${CELL[i]}${_BG}$(_sp $(( w0 - ${CW[i]:-0} + n - 1 - k ))) ${_CAP}${UL}${_CAP}${LR}"
-    line+="${_BG} $(_sp "$k")${CELL[i+1]}${_BG}"
+    line="${_CAP}${ICE_L} ${_BG} ${CELL[i]}${_BG}$(_sp $(( w0 - ${CW[i]:-0} + k ))) ${_CAP}${LL}${_CAP}${UR}"
+    line+="${_BG} ${CELL[i+1]}${_BG}"
     if [ "$w2" -gt 0 ]; then
-      line+="$(_sp $(( w1 - ${CW[i+1]:-0} + n - 1 - k ))) ${_CAP}${UL}${_CAP}${LR}"
-      line+="${_BG} $(_sp "$k")${CELL[i+2]}${_BG}$(_sp $(( w2 - ${CW[i+2]:-0} )))"
+      line+="$(_sp $(( w1 - ${CW[i+1]:-0} ))) ${_CAP}${LL}${_CAP}${UR}"
+      line+="${_BG} ${CELL[i+2]}${_BG}$(_sp $(( w2 - ${CW[i+2]:-0} + n - 1 - k )))"
     else
-      line+="$(_sp $(( w1 - ${CW[i+1]:-0} )))"
+      line+="$(_sp $(( w1 - ${CW[i+1]:-0} + n - 1 - k )))"
     fi
     printf '%s\\n' "${line} ${_CAP}${ICE_R}\033[0m"
   done
@@ -158,6 +160,7 @@ REPO_HOST=$(echo "$input" | jq -r '.workspace.repo.host // empty')
 REPO_OWNER=$(echo "$input" | jq -r '.workspace.repo.owner // empty')
 REPO_NAME=$(echo "$input" | jq -r '.workspace.repo.name // empty')
 SESSION_NAME=$(echo "$input" | jq -r '.session_name // empty')
+SESSION_ID=$(echo "$input" | jq -r '.session_id // empty')
 FAST=$(echo "$input" | jq -r '.fast_mode // false')
 DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
 LINES_ADD=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
@@ -239,9 +242,13 @@ git_stat() {
   [ "$a" -gt 0 ] && r+="$(_t "$C_GREEN" "+${a}")"
   [ "$d" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="$(_t "$C_RED" "-${d}")"; }
   [ "$u" -gt 0 ] && { [ -n "$r" ] && r+=" "; r+="$(_t "$C_YELLOW" "?${u}")"; }
-  echo "$r"
+  [ -n "$r" ] && echo "🚧 $r"
 }
-GSTAT=$(git_stat)
+GSTAT=""
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  GSTAT=$(git_stat)
+  [ -z "$GSTAT" ] && GSTAT="🚧 $(_t "$C_DIM" clean)"
+fi
 
 # ─── 5h rate-limit window time-elapsed % (from resets_at) ───
 TIME5=""
@@ -266,10 +273,10 @@ if [ -n "$SEVEN_RESET" ]; then
 fi
 
 # ═══════════════════════════════════════
-#  Cells — columns: identity | amount | this session
-#    row 0 where:  repo + location + PR | diff | session name
-#    row 1 who:    model + mode         | ctx  | prompt cache (time left, hit ratio)
-#    row 2 budget: 5h/7d gauges         | cost | elapsed, lines edited
+#  Cells — columns: identity | this session's usage | state
+#    row 0 where:  repo + location + PR | elapsed, lines edited | session name
+#    row 1 who:    model + mode         | ctx                   | prompt cache (time left, hit ratio)
+#    row 2 budget: 5h/7d gauges         | cost                  | working-tree diff
 #  Gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
 # ═══════════════════════════════════════
 if [ -n "$GH_BASE_URL" ]; then
@@ -287,9 +294,9 @@ elif [ -n "$WORKTREE" ]; then
   loc_item="⌥ $(_t "$C_GREEN" "$WORKTREE")"
 elif [ -n "$BRANCH" ]; then
   if [ -n "$GH_BASE_URL" ]; then
-    loc_item="⚡$(_t "$C_CYAN" "$(_link "${GH_BASE_URL}/tree/${BRANCH}" "$BRANCH")")"
+    loc_item="⚡️$(_t "$C_CYAN" "$(_link "${GH_BASE_URL}/tree/${BRANCH}" "$BRANCH")")"
   else
-    loc_item="⚡$(_t "$C_CYAN" "$BRANCH")"
+    loc_item="⚡️$(_t "$C_CYAN" "$BRANCH")"
   fi
 fi
 
@@ -319,13 +326,15 @@ five_item="";  { [ -n "$FIVE_USE" ]  || [ -n "$TIME5" ]; } && five_item="⏰ $(g
 seven_item=""; { [ -n "$SEVEN_USE" ] || [ -n "$TIME7" ]; } && seven_item="📆 $(gauge2 "${SEVEN_USE%.*}" "$TIME7" 12)"
 
 # Context: tokens in use / window size (1000000 → 1M, 200000 → 200k)
-ctx_item=""
+ctx_item="" size=""
+if [ -n "$CTX_SIZE" ]; then
+  if [ $(( CTX_SIZE % 1000000 )) -eq 0 ]; then size="$(( CTX_SIZE / 1000000 ))M"; else size="$(( CTX_SIZE / 1000 ))k"; fi
+fi
 if [ -n "$CUR_TOK" ]; then
   ctx_item="🧠 $(_t "$C_FG" "$(printf "%'d" "$CUR_TOK")")"
-  if [ -n "$CTX_SIZE" ]; then
-    if [ $(( CTX_SIZE % 1000000 )) -eq 0 ]; then size="$(( CTX_SIZE / 1000000 ))M"; else size="$(( CTX_SIZE / 1000 ))k"; fi
-    ctx_item+=" $(_t "$C_SUB" "/ $size")"
-  fi
+  [ -n "$size" ] && ctx_item+=" $(_t "$C_SUB" "/ $size")"
+elif [ -n "$size" ]; then  # before the first response current_usage is null
+  ctx_item="🧠 $(_t "$C_DIM" "0 / $size")"
 fi
 
 # Prompt cache: time until the warm cache expires (yellow in the last minute), then cold
@@ -336,11 +345,18 @@ if [ "$CACHE_WARM" = "true" ] && [ -n "$CACHE_EXPIRES" ] && [ $(( ${CACHE_EXPIRE
   cache_item="🔥 $(_t "$cache_color" "$(printf '%d:%02d' $(( left / 60 )) $(( left % 60 )))")"
 elif [ -n "$CACHE_WARM" ]; then
   cache_item="🧊 $(_t "$C_RED" cold)"
+elif [ -n "$MODEL" ]; then  # no request sent yet
+  cache_item="🔥 $(_t "$C_DIM" "--:--")"
 fi
-hit_item=""; [ -n "$CACHE_HIT" ] && hit_item="🎯 $(_t "$C_SUB" "${CACHE_HIT}%")"
+hit_item=""
+if [ -n "$CACHE_HIT" ]; then hit_item="🎯 $(_t "$C_SUB" "${CACHE_HIT}%")"
+elif [ -n "$MODEL" ]; then hit_item="🎯 $(_t "$C_DIM" "--%")"; fi
 
 # Session: name, elapsed wall time, lines Claude added/removed
-session_item=""; [ -n "$SESSION_NAME" ] && session_item="💬 $(_t "$C_FG" "$(_trunc "$SESSION_NAME" 28)")"
+# Unnamed session: the id prefix, enough for `claude --resume`
+session_item=""
+if   [ -n "$SESSION_NAME" ]; then session_item="💬 $(_t "$C_FG" "$(_trunc "$SESSION_NAME" 28)")"
+elif [ -n "$SESSION_ID" ];   then session_item="💬 $(_t "$C_DIM" "${SESSION_ID%%-*}")"; fi
 dur_item=""
 if [ -n "$DURATION_MS" ]; then
   s=$(( ${DURATION_MS%.*} / 1000 ))
@@ -350,17 +366,24 @@ if [ -n "$DURATION_MS" ]; then
   dur_item="⏳ $(_t "$C_SUB" "$dur")"
 fi
 lines_item=""
-[ -n "$LINES_ADD$LINES_DEL" ] && lines_item="📝 $(_t "$C_GREEN" "+${LINES_ADD:-0}") $(_t "$C_RED" "-${LINES_DEL:-0}")"
+if [ "${LINES_ADD:-0}${LINES_DEL:-0}" = "00" ]; then
+  [ -n "$LINES_ADD$LINES_DEL" ] && lines_item="📝 $(_t "$C_DIM" "+0 -0")"
+else
+  lines_item="📝 $(_t "$C_GREEN" "+${LINES_ADD:-0}") $(_t "$C_RED" "-${LINES_DEL:-0}")"
+fi
 
 CELL[0]=$(_join "$repo_item" "$loc_item" "$pr_item")
-CELL[1]=$(_join "$GSTAT")
+CELL[1]=$(_join "$dur_item" "$lines_item")
 CELL[2]=$(_join "$session_item")
 CELL[3]=$(_join "$model_item" "$effort_item" "$thinking_item" "$style_item" "$fast_item")
 CELL[4]=$(_join "$ctx_item")
 CELL[5]=$(_join "$cache_item" "$hit_item")
 CELL[6]=$(_join "$five_item" "$seven_item")
-[ -n "$COST_USD" ] && CELL[7]=$(_join "💰 $(_t "$C_SUB" "$(printf '$%.2f' "$COST_USD")")")
-CELL[8]=$(_join "$dur_item" "$lines_item")
+if [ -n "$COST_USD" ]; then
+  cost=$(printf '$%.2f' "$COST_USD"); cost_color="$C_SUB"; [ "$cost" = '$0.00' ] && cost_color="$C_DIM"
+  CELL[7]=$(_join "💰 $(_t "$cost_color" "$cost")")
+fi
+CELL[8]=$(_join "$GSTAT")
 
 # Column width = widest cell in that column
 CW=(); COLW=()
