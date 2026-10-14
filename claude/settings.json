@@ -129,7 +129,8 @@
     "github@claude-plugins-official": true,
     "vercel@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
-    "dev-os@spiderplus": true
+    "dev-os@spiderplus": true,
+    "swift-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "cloudflare": {
