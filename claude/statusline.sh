@@ -43,7 +43,8 @@ C_TRACK="#1B3B45"        # empty track: recessed band shade, not a hole
 C_USE_OK="#9ECE6A"
 C_USE_WARN="#E0AF68"
 C_USE_CRIT="#F7768E"
-C_TIME="#7DCFFF"         # window time elapsed
+C_TIME_FROM="#4F86C6"    # window time elapsed, bar start
+C_TIME="#7DCFFF"         # window time elapsed, bar end
 
 # ─── Text / pill builders ───
 # Strings carry literal \033 escapes, interpreted once by `echo -e` at output.
@@ -83,7 +84,8 @@ _trunc() {  # $1=text $2=max display width; cut with … when wider
     print "$o\x{2026}"'
 }
 
-# ─── Layout: CELL[row*3+col] → one band per row, three blocks split by slanted dividers ───
+# ─── Layout: HEAD on top, then CELL[row*3+col] → one band per row, three blocks split by slanted dividers ───
+# HEAD is one undivided block outside the column grid, so its length never pads the grid rows.
 # Every row has the same width. Each divider sits one column further right than the row above,
 # drawing parallel "\" lines, and the text after a divider follows it; the first block stays
 # left-aligned against the straight end. The third block (and its divider)
@@ -113,25 +115,35 @@ _render() {  # prints the visible rows
   done
 }
 
+# ─── Colour ramp: $1 = position 0–1000, rest = "pos:#hex" stops (ascending) → $RAMP "r;g;b" ───
+# Pure arithmetic (no subshell): called once per gauge cell.
+_ramp() {
+  local p="$1" s0="$2" s1 c0 c1 t; shift 2
+  s1="$s0"
+  for s1 in "$@"; do [ "$p" -le "${s1%%:*}" ] && break; s0="$s1"; done
+  t=0; [ "${s1%%:*}" -gt "${s0%%:*}" ] && t=$(( (p - ${s0%%:*}) * 1000 / (${s1%%:*} - ${s0%%:*}) ))
+  [ "$t" -lt 0 ] && t=0; [ "$t" -gt 1000 ] && t=1000
+  c0="${s0#*:#}"; c1="${s1#*:#}"
+  RAMP="$(( 16#${c0:0:2} + (16#${c1:0:2} - 16#${c0:0:2}) * t / 1000 ));$(( 16#${c0:2:2} + (16#${c1:2:2} - 16#${c0:2:2}) * t / 1000 ));$(( 16#${c0:4:2} + (16#${c1:4:2} - 16#${c0:4:2}) * t / 1000 ))"
+}
+
 # ─── Two-tier gauge (▀ U+2580) ───
 # Renders two independent horizontal bars in one row: fg = top tier, bg = bottom tier.
+# Each filled cell takes the ramp colour at its own position, so the tip of the usage bar
+# turns yellow from 70% and red from 90%.
 # $1=top% ("" → top dim)  $2=bottom% ("" → bottom dim)  $3=width(default 18)
 gauge2() {
   local top="$1" bot="$2" w="${3:-18}"
   local track; track=$(h2r "$C_TRACK")
-  local tf=0 bf=0 ta="$track"
-  if [ -n "$top" ]; then
-    tf=$(( top * w / 100 ))
-    if   [ "$top" -ge 90 ]; then ta=$(h2r "$C_USE_CRIT")
-    elif [ "$top" -ge 70 ]; then ta=$(h2r "$C_USE_WARN")
-    else                         ta=$(h2r "$C_USE_OK"); fi
-  fi
+  local tf=0 bf=0
+  [ -n "$top" ] && tf=$(( top * w / 100 ))
   [ -n "$bot" ] && bf=$(( bot * w / 100 ))
-  local ba i bar="" fg bg
-  ba=$(h2r "$C_TIME")
+  local i p bar="" fg bg
   for (( i=0; i<w; i++ )); do
-    if [ "$i" -lt "$tf" ]; then fg="$ta"; else fg="$track"; fi
-    if [ "$i" -lt "$bf" ]; then bg="$ba"; else bg="$track"; fi
+    p=$(( (2 * i + 1) * 1000 / (2 * w) ))  # cell centre
+    fg="$track"; bg="$track"
+    [ "$i" -lt "$tf" ] && { _ramp "$p" "0:$C_USE_OK" "700:$C_USE_WARN" "900:$C_USE_CRIT"; fg="$RAMP"; }
+    [ "$i" -lt "$bf" ] && { _ramp "$p" "0:$C_TIME_FROM" "1000:$C_TIME"; bg="$RAMP"; }
     bar+="\033[38;2;${fg}m\033[48;2;${bg}m▀"
   done
   printf '%s' "$bar"
@@ -273,10 +285,10 @@ if [ -n "$SEVEN_RESET" ]; then
 fi
 
 # ═══════════════════════════════════════
-#  Cells — columns: identity | this session's usage | state
-#    row 0 where:  repo + location + PR | elapsed, lines edited | session name
-#    row 1 who:    model + mode         | ctx                   | prompt cache (time left, hit ratio)
-#    row 2 budget: 5h/7d gauges         | cost                  | working-tree diff
+#  Head: repo, location (issue / worktree / branch), PR, working-tree diff
+#  Cells — columns: fixed-width labels | numbers | names and times
+#    row 0 session: model + mode | ctx                | session name
+#    row 1 spend:   5h/7d gauges | cost, lines edited | elapsed, prompt cache (time left, hit ratio)
 #  Gauges pair quota usage (top, ▀ fg) with window time-elapsed (bottom, ▀ bg).
 # ═══════════════════════════════════════
 if [ -n "$GH_BASE_URL" ]; then
@@ -372,18 +384,19 @@ else
   lines_item="📝 $(_t "$C_GREEN" "+${LINES_ADD:-0}") $(_t "$C_RED" "-${LINES_DEL:-0}")"
 fi
 
-CELL[0]=$(_join "$repo_item" "$loc_item" "$pr_item")
-CELL[1]=$(_join "$dur_item" "$lines_item")
-CELL[2]=$(_join "$session_item")
-CELL[3]=$(_join "$model_item" "$effort_item" "$thinking_item" "$style_item" "$fast_item")
-CELL[4]=$(_join "$ctx_item")
-CELL[5]=$(_join "$cache_item" "$hit_item")
-CELL[6]=$(_join "$five_item" "$seven_item")
+cost_item=""
 if [ -n "$COST_USD" ]; then
   cost=$(printf '$%.2f' "$COST_USD"); cost_color="$C_SUB"; [ "$cost" = '$0.00' ] && cost_color="$C_DIM"
-  CELL[7]=$(_join "💰 $(_t "$cost_color" "$cost")")
+  cost_item="💰 $(_t "$cost_color" "$cost")"
 fi
-CELL[8]=$(_join "$GSTAT")
+
+HEAD=$(_join "$repo_item" "$loc_item" "$pr_item" "$GSTAT")
+CELL[0]=$(_join "$model_item" "$effort_item" "$thinking_item" "$style_item" "$fast_item")
+CELL[1]=$(_join "$ctx_item")
+CELL[2]=$(_join "$session_item")
+CELL[3]=$(_join "$five_item" "$seven_item")
+CELL[4]=$(_join "$cost_item" "$lines_item")
+CELL[5]=$(_join "$dur_item" "$cache_item" "$hit_item")
 
 # Column width = widest cell in that column
 CW=(); COLW=()
@@ -396,6 +409,18 @@ done
 
 # ─── Output: one horizontal gradient shared by all rows ───
 rows=$(_render)
+if [ -n "$HEAD" ]; then
+  # Head row: ends + padding take 5 cells. When it outgrows the grid, the grid's last column absorbs the excess.
+  hw=$(_w "$HEAD"); gw=0
+  [ -n "$rows" ] && gw=$(_w "${rows%%\\n*}")
+  if [ "$gw" -gt 0 ] && [ $(( hw + 5 )) -gt "$gw" ]; then
+    c=2; [ "${COLW[2]:-0}" -eq 0 ] && c=1
+    COLW[c]=$(( ${COLW[c]:-0} + hw + 5 - gw )); gw=$(( hw + 5 ))
+    rows=$(_render)
+  fi
+  pad=0; [ "$gw" -gt 0 ] && pad=$(( gw - 5 - hw ))
+  rows="${_CAP}${ICE_L} ${_BG} ${HEAD}${_BG}$(_sp "$pad") ${_CAP}${ICE_R}\033[0m\n${rows}"
+fi
 echo -en "\033[0m"
 echo -en "$rows" | GRAD_FROM=$(h2r "$C_GRAD_FROM") GRAD_TO=$(h2r "$C_GRAD_TO") perl -CS -0777 -ne '
   my @from = split /;/, $ENV{GRAD_FROM}; my @to = split /;/, $ENV{GRAD_TO};

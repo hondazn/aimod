@@ -113,10 +113,10 @@ run "startup" "$REPO" '{
   "context_window":{"context_window_size":1000000,"current_usage":null}
 }' -- "🚧" "🧠 0 / 1M" "🔥 --:--" "🎯 --%" "💬 72820269" '💰 $0.00' "📝 +0 -0" ! "🧊" "655d"
 
-# 8) layout: each ◣◥ divider (U+E0B8 U+E0BE) steps one column right per row (parallel "\"
-#    lines across rows), the first block's content starts at the same column on every row,
-#    the others start one column right of the row above, and the end glyphs sit at the
-#    same columns on every row.
+# 8) layout: the head row (repo, branch, PR) has no divider; below it each ◣◥ divider
+#    (U+E0B8 U+E0BE) steps one column right per row (parallel "\" lines across rows), the
+#    first block's content starts at the same column on every row, the others start one
+#    column right of the row above, and the end glyphs sit at the same columns on every row.
 layout=$( cd "$REPO" && printf '%s' '{
   "model":{"display_name":"Opus"},"effort":{"level":"high"},"thinking":{"enabled":true},"session_name":"statusline",
   "workspace":{"project_dir":"/x/aimod"},"pr":{"number":42,"review_state":"approved"},
@@ -135,17 +135,17 @@ layout=$( cd "$REPO" && printf '%s' '{
     $last = $col if $glyph;
     $col += $c =~ /[\p{Mn}\x{200D}\x{FE0F}]/ ? 0 : $c =~ /[\p{EA=W}\p{EA=F}]/ ? 2 : 1; $prev = $c;
   }
-  print join(",", @divs), " ", join(",", @starts), " $first $last\n"' | awk '
+  print join(",", @divs) || "-", " ", join(",", @starts) || "-", " $first $last\n"' | awk '
   { d[NR] = $1; s[NR] = $2; f[NR] = $3; l[NR] = $4 }
   END {
-    ok = (NR == 3 && split(d[1], a, ",") == 2 && split(s[1], b, ",") == 3)
-    for (i = 2; i <= NR; i++) {
+    ok = (NR == 3 && d[1] == "-" && split(d[2], a, ",") == 2 && split(s[2], b, ",") == 3)
+    for (i = 3; i <= NR; i++) {
       split(d[i-1], p, ","); n = split(d[i], c, ",")
       if (n != 2 || c[1] != p[1] + 1 || c[2] != p[2] + 1) ok = 0
       split(s[i-1], q, ","); m = split(s[i], t, ",")
       if (m != 3 || t[1] != q[1] || t[2] != q[2] + 1 || t[3] != q[3] + 1) ok = 0
-      if (f[i] != f[1] || l[i] != l[1]) ok = 0
     }
+    for (i = 2; i <= NR; i++) if (f[i] != f[1] || l[i] != l[1]) ok = 0
     print ok ? "ok" : "rows=" NR " divs=" d[1] "|" d[2] "|" d[3] " starts=" s[1] "|" s[2] "|" s[3] " ends=" f[1] "-" l[1] "|" f[2] "-" l[2] "|" f[3] "-" l[3]
   }' )
 if [ "$layout" = "ok" ]; then echo "✓ layout"; PASS=$((PASS+1)); else echo "✗ layout — $layout"; FAIL=$((FAIL+1)); fi
@@ -169,6 +169,18 @@ blank=$( cd "$REPO" && printf '%s' '{"model":{"display_name":"Opus"},"workspace"
     }
     print $ok == 1 ? "ok\n" : "bad\n"' | sort -u )
 if [ "$blank" = "ok" ]; then echo "✓ left-end-blank"; PASS=$((PASS+1)); else echo "✗ left-end-blank — $blank"; FAIL=$((FAIL+1)); fi
+
+# 11) gauge gradient: at 100% the usage tier runs from the OK colour to the CRIT colour
+#     and the time tier from its start colour toward C_TIME, one colour per cell position
+grad=$( cd "$REPO" && printf '%s' '{"rate_limits":{"five_hour":{"used_percentage":100,"resets_at":1000}}}' \
+  | bash "$SCRIPT" 2>/dev/null | perl -CS -ne '
+    next unless s/^.*?\x{23F0}//; my (@fg, @bg);
+    while (/\e\[38;2;([\d;]+)m\e\[48;2;([\d;]+)m\x{2580}/g) { push @fg, $1; push @bg, $2 }
+    print "$fg[0] $fg[-1] $bg[0] $bg[-1]\n"' )
+case "$grad" in
+  "161;205;106 247;118;142 80;136;200 "*) echo "✓ gauge-gradient"; PASS=$((PASS+1)) ;;
+  *) echo "✗ gauge-gradient — $grad"; FAIL=$((FAIL+1)) ;;
+esac
 
 echo "─────────────────────────────"
 echo "PASS=$PASS  FAIL=$FAIL"
