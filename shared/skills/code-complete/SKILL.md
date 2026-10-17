@@ -94,4 +94,4 @@ flowchart TD
 
 ## 次のステップ
 
-ユースケースが完成したらコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh pr create` する。
+ユースケースが完成したらコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh stack`（`create-pr` の Phase 4-3 の手順）で起票する。

@@ -146,4 +146,4 @@ license: Proprietary
 設計がまとまったら、状況に応じて次のスキルへ引き継ぐ:
 
 - **重要な設計判断を記録に残す** → `create-issue` があればそれを使う。無ければ `gh issue create`
-- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh pr create`
+- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh stack`（`create-pr` の Phase 4-3 の手順）
