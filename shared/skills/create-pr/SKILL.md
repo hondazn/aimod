@@ -335,7 +335,12 @@ PR は `gh pr create` ではなく `gh stack` で作る。積み重ねない単�
    - 新しい stack: `gh stack init --base <base_branch> <current_branch>`（既存ブランチは取り込まれる）
    - 依存する PR を積む: その stack の最上段で `gh stack add <branch>`
 3. `gh stack submit --auto` で push と PR 作成をまとめて行う。`--auto` は既定で draft を作るので、ready にするときは `--open` を付ける（4-1）。タイトルはコミットから自動生成され、本文はコミットメッセージと gh-stack のフッタになる
-4. タイトルと本文を `gh pr edit` で差し替える。画像や動画は同じコマンドの `--attach` で添付する（本文中の `![alt](./file.png)` は添付の URL に置き換わる）
+4. タイトルと本文を `gh pr edit` で差し替える。画像や動画は同じコマンドの `--attach` でアップロードする
+
+画像・動画はリポジトリにコミットしない。ブランチやコミットの `blob/` URL を本文に貼らない。`--attach` でアップロードすれば、ブランチを消しても残る。
+
+- 本文には `![alt](./file.png)` と書き、同じパスを `--attach ./file.png` に渡す（ファイルのあるディレクトリで実行する）。その参照は `https://github.com/user-attachments/assets/…` に書き換わる
+- HTML の `<img src="./file.png">` は書き換わらない。参照されなかった扱いの添付は、本文の末尾に `![file](URL)` として追記される。幅を指定したいときは、一度添付して得た URL を `<img src>` に貼り直す
 
 本文はシェルエスケープを避けて一時ファイル経由で渡す:
 
