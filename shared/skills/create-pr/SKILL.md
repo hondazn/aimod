@@ -358,6 +358,8 @@ rm -f /tmp/pr-body-$$.md
 
 `gh stack submit` が出す URL と PR 番号を記録する。
 
+1 本だけの stack は、GitHub 上では stack として登録されない（`gh stack merge` は「stack ではない」と断る）。その PR は `gh pr merge` でマージする。
+
 stack 所属の正本は base ブランチの推測ではなく `PullRequest.stack` / `stackEntry.position` に置く。個別 PR を `gh pr merge` と `gh pr edit --base` で継ぎ足して stack の意味を再現しない。既存の stack を自動で分解・並べ替え・再構築しない。`gh stack link` は追加のみで、マージ済み・キュー済みのエントリは外せない。
 
 ### 4-4. エラーハンドリング
