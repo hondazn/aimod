@@ -1,7 +1,7 @@
 ---
 allowed-tools: Read(*) Glob(*) Grep(*) Bash(gh:*) Bash(git:*) Bash(cat:*) Bash(ls:*) Bash(rm:*)
 argument-hint: '[補足 例: base ブランチ指定・draft PR 指示 など。省略可]'
-description: 現在の差分・コミット履歴・関連 Issue から PR 本文を生成し、push して即起票する。PR テンプレートがあればその見出し構造が正本。確認ゲートは置かず、動作確認エビデンスと Test Plan を含める。
+description: 現在の差分・コミット履歴・関連 Issue から PR 本文を生成し、gh stack で push して即起票する。PR テンプレートがあればその見出し構造が正本。確認ゲートは置かず、動作確認エビデンスと Test Plan を含める。
 name: create-pr
 ---
 # 新規PR作成
@@ -28,11 +28,11 @@ $ARGUMENTS
 
 ## 運用原則: 仮決め即実行
 
-- **確認ゲートは置かない**。push 未実施でも無条件で `git push -u origin <branch>` して続行する
+- **確認ゲートは置かない**。push 未実施でも、Phase 4-3 の `gh stack submit` が push するので確認せず続行する
 - **事前確認ではなく事後報告**で、ユーザーが差し戻せる余地を残す
 - draft PR にするかレビュー準備完了の PR にするかは、以下のヒューリスティクスで仮決め:
   - 変更行数が 500 行超、または設計判断を含む → draft
-  - それ以外 → ready（draft フラグなし）
+  - それ以外 → ready
   - ユーザー指示 (`--draft` など) があればそれに従う
 
 ---
@@ -55,7 +55,7 @@ git status                      # 未コミット変更がないか
 | 現在が `main` / `master` / `trunk` | 中止。作業ブランチ（または worktree）を切って変更を移してから再実行するよう報告する。worktree 運用は `superpowers:using-git-worktrees` を案内する |
 | 未コミット変更あり | 中止。`/git-commit` を先に呼ぶようユーザーに提案 |
 | main との差分コミット数が 0 | 中止。「差分がないため PR を作れません」と報告 |
-| リモートに push 未実施 | 無条件で `git push -u origin <branch>` を実行してから Phase 1-2 に進む（確認しない） |
+| リモートに push 未実施 | そのまま Phase 1-2 に進む。Phase 4-3 の `gh stack submit` が push する（確認しない） |
 
 ### 1-2. 関連 Issue の特定
 
@@ -314,8 +314,8 @@ Closes #<番号>
 
 Phase 1-2 の変更規模・Phase 3 の設計判断から以下で仮決め:
 
-- 500 行超の変更、または設計判断を含む → `--draft`
-- それ以外 → ready
+- 500 行超の変更、または設計判断を含む → draft（`gh stack submit --auto` の既定）
+- それ以外 → ready（`--open` を付ける）
 - ユーザー引数 `--draft` / `--ready` があればそちらを優先
 
 ### 4-2. base ブランチ判定
@@ -326,36 +326,51 @@ Phase 1-2 の変更規模・Phase 3 の設計判断から以下で仮決め:
 - ユーザー引数に `--base <name>` があればそれを採用
 - `develop` / `staging` 運用のリポジトリは、`gh repo view --json defaultBranchRef` で既定を確認
 
-### 4-3. 起票実行
+### 4-3. 起票実行（必ず `gh stack`）
+
+PR は `gh pr create` ではなく `gh stack` で作る。積み重ねない単独の PR も、1 段の stack として作る。
+
+1. `gh stack --version` で拡張を確かめる。無ければ GitHub 公式拡張を `gh extension install github/gh-stack` で入れる。サーバ側の stack 機能が無く submit が失敗したら、そこで止めて報告する（`gh pr create` に流れない）
+2. 作業ブランチを stack に載せる。detached HEAD では `init` が失敗し、しかもブランチだけは作られるので、先に作業ブランチへ switch しておく
+   - 新しい stack: `gh stack init --base <base_branch> <current_branch>`（既存ブランチは取り込まれる）
+   - 依存する PR を積む: その stack の最上段で `gh stack add <branch>`
+3. `gh stack submit --auto` で push と PR 作成をまとめて行う。`--auto` は既定で draft を作るので、ready にするときは `--open` を付ける（4-1）。タイトルはコミットから自動生成され、本文はコミットメッセージと gh-stack のフッタになる
+4. タイトルと本文を `gh pr edit` で差し替える。画像や動画は同じコマンドの `--attach` でアップロードする
+
+画像・動画はリポジトリにコミットしない。ブランチやコミットの `blob/` URL を本文に貼らない。`--attach` でアップロードすれば、ブランチを消しても残る。
+
+- 本文には `![alt](./file.png)` と書き、同じパスを `--attach ./file.png` に渡す（ファイルのあるディレクトリで実行する）。その参照は `https://github.com/user-attachments/assets/…` に書き換わる
+- HTML の `<img src="./file.png">` は書き換わらない。参照されなかった扱いの添付は、本文の末尾に `![file](URL)` として追記される。幅を指定したいときは、一度添付して得た URL を `<img src>` に貼り直す
 
 本文はシェルエスケープを避けて一時ファイル経由で渡す:
 
 ```bash
+gh stack init --base <base_branch> <current_branch>
+gh stack submit --auto $OPEN_FLAG
+PR=$(gh pr view --json number -q .number)
+
 cat > /tmp/pr-body-$$.md << 'PR_EOF'
 <生成した本文>
 PR_EOF
 
-gh pr create \
-  --base <base_branch> \
+gh pr edit "$PR" \
   --title "<生成したタイトル>" \
-  --body-file /tmp/pr-body-$$.md \
-  $DRAFT_FLAG
+  --body-file /tmp/pr-body-$$.md
+  # 画像・動画があれば: --attach './after.png#<alt>'
 
 rm -f /tmp/pr-body-$$.md
 ```
 
-`gh pr create` は作成された PR の URL を返すので、URL と PR 番号を記録する。
+`gh stack submit` が出す URL と PR 番号を記録する。
 
-### 4-3A. 積み重ねた PR はネイティブの stack に載せる
+1 本だけの stack は、GitHub 上では stack として登録されない（`gh stack merge` は「stack ではない」と断る）。その PR は `gh pr merge` でマージする。
 
-依存する PR を積むときは、GitHub のネイティブな stack と `gh stack` を使う。個別 PR を `gh pr merge` と `gh pr edit` で継ぎ足して stack の意味を再現しない。stack 所属の正本は base ブランチの推測ではなく `PullRequest.stack` / `stackEntry.position` に置く。
-
-GitHub の状態を変える前に `gh stack --version` を実行する。公式拡張またはサーバ側の stack 機能が無ければ、そこで止める（代替の手順に流れない）。既存の stack を自動で分解・並べ替え・再構築しない。`gh stack link` は追加のみで、マージ済み・キュー済みのエントリは外せない。
+stack 所属の正本は base ブランチの推測ではなく `PullRequest.stack` / `stackEntry.position` に置く。個別 PR を `gh pr merge` と `gh pr edit --base` で継ぎ足して stack の意味を再現しない。既存の stack を自動で分解・並べ替え・再構築しない。`gh stack link` は追加のみで、マージ済み・キュー済みのエントリは外せない。
 
 ### 4-4. エラーハンドリング
 
-- push 未実施エラー → Phase 1-1 で確認済みなら起きないはず。起きたら push 実行の可否を確認
-- 既に同ブランチから PR がある → その PR を更新するか、別ブランチで起票し直すかユーザーに確認
+- push の失敗 → `gh stack submit` の出力を報告し、認証か remote を確かめる
+- 既に同ブランチの PR がある → `gh stack submit` はその PR を使って stack に載せる。本文は 4-3 の `gh pr edit` で差し替える
 - base ブランチが存在しない → ユーザーに報告して中止
 - 権限エラー → 認証状態の確認を促す
 
@@ -600,6 +615,7 @@ Closes #45
 | 「レビュー確認ポイントが思いつかない」 | 「自信がない箇所」「設計判断が分かれる箇所」を挙げる。無いなら書き直しを検討 |
 | 「draft か ready か迷う」 | 500 行ルールで仮決め。後で変更可能 |
 | 「動作確認が無いから書かない」 | 無いなら起票前に 1 つでも確認する。0 件の動作確認は PR の価値を伝えられない |
-| 「push 未実施なので確認しよう」 | 確認ゲート禁止。無条件で `git push -u origin <branch>` を実行してから続行する |
+| 「push 未実施なので確認しよう」 | 確認ゲート禁止。`gh stack submit` が push する |
+| 「単独の PR だから `gh pr create` で十分」 | PR は必ず `gh stack` で作る。単独でも 1 段の stack にする |
 | 「テンプレに無い見出しを足そう」 | テンプレの見出しが正本。相当欄に書くか、無ければ書かない |
 | 「最近の PR がこう書いていた」 | テンプレがあるなら直近 PR の本文構造は見ない |

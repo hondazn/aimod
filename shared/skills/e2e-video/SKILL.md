@@ -62,7 +62,7 @@ description: 受け入れ操作を実ブラウザで通し、カーソル・ク�
 
 ### 4. 公開する
 
-- **PR を起票するときは `gh pr create --attach <mp4>`。** 起票してからコメントに添付し、本文を編集してコメント URL を貼る、という順にしない。証跡を CI で検査するプロジェクトは本文しか見ないので、コメントに貼った動画は無いのと同じ扱いになる。`--attach` は `pr create` / `pr comment` / `issue comment` にある（トップレベルには無い）。
+- **動画は PR の本文に `--attach` で添付する。** PR は `gh stack submit` で作るので（`create-pr` の Phase 4-3）、続く `gh pr edit <番号> --body-file <本文> --attach <mp4>` で本文と一緒に載せる。コメントに添付して本文にコメント URL を貼る、という順にしない。証跡を CI で検査するプロジェクトは本文しか見ないので、コメントに貼った動画は無いのと同じ扱いになる。`--attach` は `pr create` / `pr edit` / `pr comment` / `issue comment` にある（トップレベルには無い）。
 - **添付できたか機械で確かめる。** `--attach` は一部だけ失敗しても PR を作る: `gh pr view <番号> --json body --jq '.body' | grep -c 'user-attachments/assets/'` が本数と一致するか見る。
 - 差し替え時は古い動画コメントを消す（陳腐化防止）。残すのは最新1本。
 - **本文を編集する前後で、実演した HEAD を読み直す。** 動いたなら止める。撮影した時点のコードと PR が指すコードが食い違う動画は証跡にならない。

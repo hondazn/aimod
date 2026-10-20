@@ -219,7 +219,7 @@ license: Proprietary
 
 - **境界そのものを見直す** → `/ddd-discovery` 逆算検証で不一致が出た、集約を単純化したら別のモデルが見えた、コンテキスト間の通信が過剰だった — いずれも境界の再設計に戻る合図である
 - **コード構造の設計に落とす** → `/design-code` 型・インターフェース・データフロー・エラー境界を詰める
-- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh pr create`
+- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh stack`（`create-pr` の Phase 4-3 の手順）
 
 ---
 

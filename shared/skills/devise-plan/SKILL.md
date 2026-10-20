@@ -80,4 +80,4 @@ license: Proprietary
 
 - **各単位を書く直前に、その単位の境界・型・データフローを決める** → `/design-code`（単位ごとに。タスク全体の設計文書はまとめない）
 - **計画を Issue として記録する** → `create-issue` があればそれを使う。無ければ `gh issue create`
-- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh pr create`
+- **実装に着手** → 完了後はコミットし、必要なら PR を作る。`git-commit` / `create-pr` があればそれを使い、無ければ `git commit` / `gh stack`（`create-pr` の Phase 4-3 の手順）
