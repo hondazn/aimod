@@ -130,7 +130,10 @@
     "vercel@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "dev-os@spiderplus": true,
-    "swift-lsp@claude-plugins-official": true
+    "swift-lsp@claude-plugins-official": true,
+    "frontend-design@anthropic-plugin-directory": true,
+    "ralph-loop@anthropic-plugin-directory": true,
+    "claude-security@anthropic-plugin-directory": true
   },
   "extraKnownMarketplaces": {
     "cloudflare": {
